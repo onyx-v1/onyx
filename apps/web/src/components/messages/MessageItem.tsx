@@ -104,10 +104,8 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
         position: 'relative',
         padding: compact ? '1px 20px' : '6px 20px 2px',
         borderRadius: 6,
-        background: mentionsMe
-          ? 'rgba(139,124,248,0.06)'
-          : hovered ? 'rgba(255,255,255,0.025)' : 'transparent',
-        borderLeft: mentionsMe ? '2px solid rgba(139,124,248,0.5)' : '2px solid transparent',
+        background: hovered ? 'rgba(255,255,255,0.025)' : 'transparent',
+        borderLeft: '2px solid transparent',
         transition: 'background 0.08s',
       }}
     >

@@ -5,6 +5,7 @@ export interface Member {
   id: string;
   username: string;
   displayName: string;
+  avatarUrl?: string | null;
 }
 
 interface MembersState {

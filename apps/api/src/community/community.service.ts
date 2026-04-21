@@ -27,7 +27,7 @@ export class CommunityService {
 
   async getMembers() {
     return this.prisma.user.findMany({
-      select: { id: true, username: true, displayName: true },
+      select: { id: true, username: true, displayName: true, avatarUrl: true },
       orderBy: { displayName: 'asc' },
     });
   }

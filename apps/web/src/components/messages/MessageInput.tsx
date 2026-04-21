@@ -3,6 +3,7 @@ import { Send, X, CornerUpLeft, AtSign } from 'lucide-react';
 import { Message } from '@onyx/types';
 import { getSocket } from '../../hooks/useSocket';
 import { useMembersStore, Member } from '../../stores/membersStore';
+import { Avatar } from '../ui/Avatar';
 
 interface Props {
   channelId: string;
@@ -204,14 +205,11 @@ export function MessageInput({ channelId, replyTo, onCancelReply }: Props) {
                   <AtSign size={13} style={{ color: '#f09f40' }} />
                 </div>
               ) : (
-                <div style={{
-                  width: 28, height: 28, borderRadius: '50%',
-                  background: 'rgba(139,124,248,0.15)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                  fontSize: 12, fontWeight: 600, color: 'var(--color-accent)',
-                }}>
-                  {m.displayName[0].toUpperCase()}
-                </div>
+                <Avatar
+                  displayName={m.displayName}
+                  avatarUrl={m.avatarUrl}
+                  size="xs"
+                />
               )}
               <div>
                 <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-primary)', margin: 0 }}>

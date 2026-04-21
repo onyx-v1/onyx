@@ -1,13 +1,11 @@
 import { useEffect, useCallback, useState } from 'react';
 import { useMessageStore } from '../stores/messageStore';
-import { useChannelStore } from '../stores/channelStore';
 import { useSocketStore } from '../stores/socketStore';
 import { getSocket } from './useSocket';
 import { WsEvents } from '@onyx/types';
 
 export function useMessages(channelId: string) {
-  const { messages, hasMore, loading, fetchHistory, addMessage, deleteMessage } = useMessageStore();
-  const { markUnread, activeChannelId } = useChannelStore();
+  const { messages, hasMore, loading, fetchHistory, deleteMessage } = useMessageStore();
   const connectionId = useSocketStore((s) => s.connectionId);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,21 +30,15 @@ export function useMessages(channelId: string) {
 
     socket.emit('channel:join', { channelId });
 
-    const handleNew = ({ message }: WsEvents.MessageNew) => {
-      if (message.channelId !== channelId) return;
-      addMessage(channelId, message);
-      if (activeChannelId !== channelId) markUnread(channelId);
-    };
-
+    // Note: message:new storage is handled globally by useUnreadTracker.
+    // We only need to listen for deletes here (channel-scoped).
     const handleDeleted = ({ messageId, channelId: cId }: WsEvents.MessageDeleted) => {
       if (cId === channelId) deleteMessage(channelId, messageId);
     };
 
-    socket.on('message:new',     handleNew);
     socket.on('message:deleted', handleDeleted);
 
     return () => {
-      socket.off('message:new',     handleNew);
       socket.off('message:deleted', handleDeleted);
     };
   }, [channelId, connectionId]);
