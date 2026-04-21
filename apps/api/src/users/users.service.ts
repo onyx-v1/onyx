@@ -19,42 +19,56 @@ function generateCode(): string {
   return Array.from({ length: 7 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 }
 
-// ── Cloudinary destroy helper ──────────────────────────────────────────────────
-//
-// Extracts the public_id from a Cloudinary URL and calls the signed destroy API.
-// Runs silently — if it fails, the upload still proceeds.
-//
+// ── Cloudinary helpers ─────────────────────────────────────────────────────────
+
+/** Parse the monolithic CLOUDINARY_URL env var:
+ *  cloudinary://API_KEY:API_SECRET@CLOUD_NAME
+ */
+function parseCloudinaryUrl(raw: string | undefined) {
+  if (!raw) return null;
+  const m = raw.match(/^cloudinary:\/\/(\d+):([^@]+)@(.+)$/);
+  if (!m) return null;
+  return { apiKey: m[1], apiSecret: m[2], cloudName: m[3] };
+}
+
+/**
+ * Delete an asset from Cloudinary using a SHA-1 signed destroy request.
+ * Runs silently — failures don't block the avatar update.
+ */
 async function destroyCloudinaryAsset(url: string, config: ConfigService) {
   try {
-    const cloudName = config.get<string>('CLOUDINARY_CLOUD_NAME');
-    const apiKey    = config.get<string>('CLOUDINARY_API_KEY');
-    const apiSecret = config.get<string>('CLOUDINARY_API_SECRET');
+    const creds = parseCloudinaryUrl(config.get<string>('CLOUDINARY_URL'));
+    if (!creds) return; // env var not set — skip
 
-    if (!cloudName || !apiKey || !apiSecret) return; // not configured — skip
-
-    // Example URL: https://res.cloudinary.com/{cloud}/image/upload/v1234567890/onyx/avatars/file.jpg
-    // We need public_id = "onyx/avatars/file" (no leading /upload/vXXXX/, no extension)
+    // Extract public_id from URL
+    // e.g. https://res.cloudinary.com/dcks1ojja/image/upload/v1234/onyx/avatars/file.jpg
+    //   → public_id = "onyx/avatars/file"
     const match = url.match(/\/upload\/(?:v\d+\/)?(.+)\.[a-z]{2,5}(?:\?.*)?$/i);
     if (!match) return;
     const publicId = match[1];
 
     const timestamp = Math.floor(Date.now() / 1000).toString();
     const signature = createHash('sha1')
-      .update(`public_id=${publicId}&timestamp=${timestamp}${apiSecret}`)
+      .update(`public_id=${publicId}&timestamp=${timestamp}${creds.apiSecret}`)
       .digest('hex');
 
-    const form = new URLSearchParams({ public_id: publicId, timestamp, api_key: apiKey, signature });
+    const form = new URLSearchParams({
+      public_id: publicId,
+      timestamp,
+      api_key:   creds.apiKey,
+      signature,
+    });
 
-    await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`, {
+    await fetch(`https://api.cloudinary.com/v1_1/${creds.cloudName}/image/destroy`, {
       method:  'POST',
       body:    form.toString(),
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     });
   } catch {
-    // Non-fatal — log but don't block the update
     console.warn('[UsersService] Failed to delete old Cloudinary asset:', url);
   }
 }
+
 
 @Injectable()
 export class UsersService {

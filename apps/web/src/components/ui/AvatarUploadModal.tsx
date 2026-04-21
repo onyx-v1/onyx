@@ -38,8 +38,16 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 
 interface Props { onClose: () => void; }
 
-const CLOUD_NAME    = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME    ?? '';
-const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET ?? 'onyx_avatars';
+// Parse either VITE_CLOUDINARY_URL (monolithic) or individual vars
+function getCloudinaryConfig() {
+  const url = import.meta.env.VITE_CLOUDINARY_URL ?? '';
+  const m   = url.match(/^cloudinary:\/\/(\d+):([^@]+)@(.+)$/);
+  const cloudName    = m?.[3] ?? import.meta.env.VITE_CLOUDINARY_CLOUD_NAME ?? '';
+  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET ?? 'onyx_avatars';
+  return { cloudName, uploadPreset };
+}
+
+const { cloudName: CLOUD_NAME, uploadPreset: UPLOAD_PRESET } = getCloudinaryConfig();
 
 export function AvatarUploadModal({ onClose }: Props) {
   const { user } = useAuthStore();
