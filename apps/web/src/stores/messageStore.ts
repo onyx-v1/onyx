@@ -29,6 +29,7 @@ interface MessageState {
   addMessage:      (channelId: string, message: Message) => void;
   updateMessage:   (channelId: string, messageId: string, patch: Partial<Message>) => void;
   deleteMessage:   (channelId: string, messageId: string) => void;
+  removeMessage:   (channelId: string, messageId: string) => void;
   addPinEvent:     (channelId: string, event: PinEvent) => void;
   clearChannel:    (channelId: string) => void;
 
@@ -106,6 +107,15 @@ export const useMessageStore = create<MessageState>((set, get) => ({
         channelId,
         existing.map((m) => (m.id === messageId ? { ...m, deleted: true, content: '' } : m)),
       );
+      return { messages: nextMessages };
+    }),
+
+  /** Physically removes a message with no trace — used when feedback is off */
+  removeMessage: (channelId: string, messageId: string) =>
+    set((s) => {
+      const existing = s.messages.get(channelId) ?? [];
+      const nextMessages = new Map(s.messages);
+      nextMessages.set(channelId, existing.filter((m) => m.id !== messageId));
       return { messages: nextMessages };
     }),
 

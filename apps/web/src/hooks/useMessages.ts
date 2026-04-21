@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useState, useMemo } from 'react';
 import { useMessageStore, isPinEvent } from '../stores/messageStore';
 import { useSocketStore } from '../stores/socketStore';
+import { useDeletePrefsStore } from '../stores/deletePrefsStore';
 import { getSocket } from './useSocket';
 import { WsEvents } from '@onyx/types';
 
@@ -9,7 +10,7 @@ export function useMessages(channelId: string) {
   const pinEvents  = useMessageStore((s) => s.pinEvents);
   const hasMore    = useMessageStore((s) => s.hasMore);
   const loading    = useMessageStore((s) => s.loading);
-  const { fetchHistory, deleteMessage } = useMessageStore();
+  const { fetchHistory, deleteMessage, removeMessage } = useMessageStore();
   const connectionId = useSocketStore((s) => s.connectionId);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,7 +47,14 @@ export function useMessages(channelId: string) {
     // message:new and message:pinned are handled globally by useUnreadTracker.
     // Only handle deletes here (channel-scoped).
     const handleDeleted = ({ messageId, channelId: cId }: WsEvents.MessageDeleted) => {
-      if (cId === channelId) deleteMessage(channelId, messageId);
+      if (cId !== channelId) return;
+      // Read preference at event time (not stale closure)
+      const showFeedback = useDeletePrefsStore.getState().showDeleteFeedback;
+      if (showFeedback) {
+        deleteMessage(channelId, messageId);  // shows "Message deleted" italic
+      } else {
+        removeMessage(channelId, messageId);  // completely removes, no trace
+      }
     };
 
     socket.on('message:deleted', handleDeleted);
