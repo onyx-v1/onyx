@@ -8,12 +8,12 @@ export function Header() {
   return (
     <header className="app-header">
       {/* Server name — matches sidebar width exactly */}
-      <div className="flex items-center gap-2 flex-shrink-0" style={{ width: 220 }}>
+      <div className="flex items-center gap-2 flex-shrink-0" style={{ width: 'var(--size-sidebar)' }}>
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-lg bg-accent flex items-center justify-center">
             <span className="text-white text-xs font-bold">O</span>
           </div>
-          <span className="font-bold text-sm text-primary">{communityName}</span>
+          <span className="font-bold text-base text-primary">{communityName}</span>
         </div>
       </div>
 
@@ -21,10 +21,10 @@ export function Header() {
       <div className="flex-1 flex items-center gap-2 pl-3">
         {activeChannel && (
           <>
-            <span className="text-muted text-lg">
+            <span className="text-muted text-xl">
               {activeChannel.type === 'TEXT' ? '#' : '🔊'}
             </span>
-            <span className="font-semibold text-sm text-primary">{activeChannel.name}</span>
+            <span className="font-semibold text-base text-primary">{activeChannel.name}</span>
           </>
         )}
       </div>
@@ -33,11 +33,11 @@ export function Header() {
       <div className="flex items-center gap-3">
         {/* Search */}
         <div className="flex items-center gap-2 bg-input px-3 py-2 rounded-lg border border-transparent focus-within:border-accent/30 transition-colors">
-          <Search size={14} className="text-muted flex-shrink-0" />
+          <Search size={16} className="text-muted flex-shrink-0" />
           <input
             type="text"
-            placeholder="Search..."
-            className="bg-transparent outline-none text-primary text-sm w-32 placeholder:text-muted"
+            placeholder="Search…"
+            className="bg-transparent outline-none text-primary text-sm w-36 placeholder:text-muted"
           />
         </div>
 

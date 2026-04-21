@@ -54,7 +54,7 @@ export function MessageItem({ message, compact, onReply }: Props) {
         {!compact ? (
           <Avatar displayName={message.author.displayName} size="sm" />
         ) : (
-          <span className="text-[10px] text-subtle opacity-0 group-hover:opacity-100 transition-opacity pt-0.5 select-none">
+          <span className="text-xs text-subtle opacity-0 group-hover:opacity-100 transition-opacity pt-0.5 select-none">
             {format(date, 'HH:mm')}
           </span>
         )}
@@ -65,7 +65,7 @@ export function MessageItem({ message, compact, onReply }: Props) {
         {/* Reply preview */}
         {message.replyTo && (
           <div className="flex items-center gap-2 mb-1 text-xs text-muted">
-            <CornerUpLeft size={10} className="flex-shrink-0" />
+            <CornerUpLeft size={12} className="flex-shrink-0" />
             <span className="font-medium">{message.replyTo.author.displayName}</span>
             <span className="truncate opacity-70">{message.replyTo.content}</span>
           </div>
@@ -75,17 +75,16 @@ export function MessageItem({ message, compact, onReply }: Props) {
         {!compact && (
           <div className="flex items-baseline gap-2 mb-0.5">
             <span
-              className="text-sm font-semibold text-primary hover:underline cursor-pointer"
-              style={{ color: isOwn ? '#a695fa' : undefined }}
+              className={`text-base font-semibold hover:underline cursor-pointer ${isOwn ? 'text-accent-hover' : 'text-primary'}`}
             >
               {message.author.displayName}
             </span>
-            <span className="text-[10px] text-subtle">{formatTime(date)}</span>
+            <span className="text-xs text-subtle">{formatTime(date)}</span>
           </div>
         )}
 
         {/* Message text */}
-        <p className="text-sm text-primary leading-relaxed break-words">{message.content}</p>
+        <p className="text-base text-primary leading-relaxed break-words">{message.content}</p>
       </div>
 
       {/* Hover actions */}

@@ -34,7 +34,7 @@ export function Sidebar() {
     <aside className="app-sidebar">
       {/* Community name */}
       <div className="px-4 py-4 border-b border-white/5">
-        <span className="text-xs font-semibold text-muted uppercase tracking-wider">{communityName}</span>
+        <span className="text-xs font-semibold text-muted uppercase tracking-widest">{communityName}</span>
       </div>
 
       {/* Channels */}
@@ -69,13 +69,12 @@ export function Sidebar() {
           <div className="relative flex-shrink-0">
             <Avatar displayName={user?.displayName ?? ''} size="sm" />
             <span
-              className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-base"
-              style={{ background: user && isOnline(user.id) ? '#3ecf8e' : '#666' }}
+              className={`online-dot absolute -bottom-0.5 -right-0.5 ${user && isOnline(user.id) ? 'is-online' : 'is-offline'}`}
             />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-primary truncate">{user?.displayName}</p>
-            <p className="text-[10px] text-muted truncate">@{user?.username}</p>
+            <p className="text-sm font-semibold text-primary truncate">{user?.displayName}</p>
+            <p className="text-xs text-muted truncate">@{user?.username}</p>
           </div>
           <div className="flex items-center gap-1">
             {user?.role === 'ADMIN' && (

@@ -1,119 +1,311 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;1,14..32,400&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Base Reset ─────────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESIGN TOKENS — every value the app uses, defined here as CSS variables.
+   Change here → updates everywhere. No hunting through components.
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  /* ── Surfaces ─────────────────────────────────────────────────── */
+  --color-base:     #181818;   /* header + sidebar background */
+  --color-panel:    #202020;   /* main content area */
+  --color-hover:    #252525;   /* item hover state */
+  --color-active:   #2c2c2c;   /* active/selected item */
+  --color-elevated: #2a2a2a;   /* modals, dropdowns, tooltips */
+  --color-input:    #1e1e1e;   /* all input backgrounds */
+  --color-border:   rgba(255,255,255,0.06); /* subtle dividers */
+
+  /* ── Brand ────────────────────────────────────────────────────── */
+  --color-accent:       #8b7cf8;
+  --color-accent-hover: #a695fa;
+  --color-accent-muted: rgba(139,124,248,0.15);
+
+  /* ── Text ─────────────────────────────────────────────────────── */
+  --color-primary: #f2f2f2;
+  --color-muted:   #a0a0a0;
+  --color-subtle:  #606060;
+
+  /* ── Status ───────────────────────────────────────────────────── */
+  --color-online:  #3ecf8e;
+  --color-danger:  #f04040;
+  --color-warning: #f59e0b;
+
+  /* ── Layout Dimensions ────────────────────────────────────────── */
+  --size-header:  62px;
+  --size-sidebar: 248px;
+
+  /* ── Radii ────────────────────────────────────────────────────── */
+  --radius-panel:   16px;
+  --radius-control: 10px;
+  --radius-sm:       6px;
+
+  /* ── Typography ───────────────────────────────────────────────── */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BASE RESET
+   ═══════════════════════════════════════════════════════════════════════════ */
 @layer base {
   *, *::before, *::after { box-sizing: border-box; }
+
+  html {
+    font-size: 15px; /* base — all rem/em scales from here */
+  }
 
   html, body, #root {
     height: 100%;
     overflow: hidden;
-    background-color: #181818;
-    color: #f0f0f0;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: var(--color-base);
+    color: var(--color-primary);
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    line-height: 1.6;
   }
 
-  /* Premium thin scrollbar */
-  ::-webkit-scrollbar { width: 4px; height: 4px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
-  ::-webkit-scrollbar-thumb:hover { background: #444; }
+  /* ── Scrollbar ─────────────────────────────────────────────────── */
+  ::-webkit-scrollbar        { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track  { background: transparent; }
+  ::-webkit-scrollbar-thumb  { background: rgba(255,255,255,0.12); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
 
-  a { color: inherit; text-decoration: none; }
-  button { cursor: pointer; border: none; background: none; font-family: inherit; }
-  input, textarea { font-family: inherit; }
+  a       { color: inherit; text-decoration: none; }
+  button  { cursor: pointer; border: none; background: none; font-family: inherit; }
+  input, textarea { font-family: inherit; font-size: inherit; }
+  p, span { line-height: inherit; }
 }
 
-/* ─── Layout Shell ───────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   LAYOUT SHELL — fixed positioning grid
+   ═══════════════════════════════════════════════════════════════════════════ */
 @layer components {
+
+  /* ── Header ────────────────────────────────────────────────────── */
   .app-header {
-    @apply fixed top-0 left-0 right-0 flex items-center px-4 bg-base z-30;
-    height: 60px;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    display: flex;
+    align-items: center;
+    padding: 0 1rem;
+    height: var(--size-header);
+    background-color: var(--color-base);
+    z-index: 30;
+    border-bottom: 1px solid var(--color-border);
   }
 
+  /* ── Sidebar ───────────────────────────────────────────────────── */
   .app-sidebar {
-    @apply fixed left-0 bottom-0 flex flex-col bg-base z-20;
-    top: 60px;
-    width: 220px;
+    position: fixed;
+    left: 0;
+    top: var(--size-header);
+    bottom: 0;
+    width: var(--size-sidebar);
+    background-color: var(--color-base);
+    display: flex;
+    flex-direction: column;
+    z-index: 20;
+    border-right: 1px solid var(--color-border);
   }
 
+  /* ── Main Panel ────────────────────────────────────────────────── */
   .app-main {
-    @apply fixed right-0 bottom-0 bg-panel z-10;
-    top: 60px;
-    left: 220px;
-    border-top-left-radius: 16px;
+    position: fixed;
+    top: var(--size-header);
+    left: var(--size-sidebar);
+    right: 0;
+    bottom: 0;
+    background-color: var(--color-panel);
+    border-top-left-radius: var(--radius-panel);
     overflow: hidden;
+    z-index: 10;
   }
 
-  /* ─── Channel List ─────────────────────────────────── */
+  /* ── Channel Items ─────────────────────────────────────────────── */
   .channel-item {
-    @apply flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-all duration-100;
-    @apply text-muted text-sm;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: var(--color-muted);
+    font-size: 14px;
+    font-weight: 500;
+    transition: background 0.1s, color 0.1s;
   }
-  .channel-item:hover { @apply bg-hover text-primary; }
-  .channel-item.active { @apply bg-active text-primary; }
-  .channel-item.has-unread { @apply text-primary font-semibold; }
+  .channel-item:hover         { background: var(--color-hover); color: var(--color-primary); }
+  .channel-item.active        { background: var(--color-active); color: var(--color-primary); }
+  .channel-item.has-unread    { color: var(--color-primary); font-weight: 600; }
 
-  /* ─── Messages ─────────────────────────────────────── */
+  /* ── Messages ──────────────────────────────────────────────────── */
   .message-group {
-    @apply flex gap-3 px-4 py-1 hover:bg-white/[0.02] rounded-md transition-colors duration-100;
+    display: flex;
+    gap: 14px;
+    padding: 3px 20px;
+    border-radius: 8px;
+    transition: background 0.08s;
   }
-  .message-group:hover .message-actions { @apply opacity-100; }
+  .message-group:hover { background: rgba(255,255,255,0.02); }
+  .message-group:hover .message-actions { opacity: 1; }
+
   .message-actions {
-    @apply opacity-0 transition-opacity duration-100 flex items-center gap-1;
+    opacity: 0;
+    transition: opacity 0.1s;
+    display: flex;
+    align-items: center;
+    gap: 2px;
   }
 
-  /* ─── Buttons ──────────────────────────────────────── */
+  /* ── Buttons ───────────────────────────────────────────────────── */
   .btn-primary {
-    @apply bg-accent hover:bg-accent-hover text-white font-semibold px-4 py-2 rounded-lg transition-colors duration-150;
+    background-color: var(--color-accent);
+    color: #fff;
+    font-weight: 600;
+    font-size: 14px;
+    padding: 10px 20px;
+    border-radius: var(--radius-control);
+    transition: background 0.15s;
   }
+  .btn-primary:hover  { background-color: var(--color-accent-hover); }
+
   .btn-secondary {
-    @apply bg-elevated hover:bg-hover text-primary font-medium px-4 py-2 rounded-lg transition-colors duration-150;
+    background-color: var(--color-elevated);
+    color: var(--color-primary);
+    font-weight: 500;
+    font-size: 14px;
+    padding: 10px 20px;
+    border-radius: var(--radius-control);
+    transition: background 0.15s;
   }
+  .btn-secondary:hover { background-color: var(--color-hover); }
+
   .btn-danger {
-    @apply bg-danger/10 hover:bg-danger/20 text-danger font-medium px-4 py-2 rounded-lg transition-colors duration-150;
+    background-color: rgba(240,64,64,0.1);
+    color: var(--color-danger);
+    font-weight: 500;
+    font-size: 14px;
+    padding: 10px 20px;
+    border-radius: var(--radius-control);
+    transition: background 0.15s;
   }
+  .btn-danger:hover { background-color: rgba(240,64,64,0.2); }
+
   .btn-ghost {
-    @apply text-muted hover:text-primary hover:bg-hover px-2 py-1 rounded transition-colors duration-100;
+    color: var(--color-muted);
+    padding: 6px 8px;
+    border-radius: var(--radius-sm);
+    transition: color 0.1s, background 0.1s;
   }
+  .btn-ghost:hover { color: var(--color-primary); background: var(--color-hover); }
 
-  /* ─── Inputs ───────────────────────────────────────── */
+  /* ── Form Inputs ───────────────────────────────────────────────── */
   .input-field {
-    @apply w-full bg-input text-primary px-4 py-3 rounded-lg outline-none border border-transparent;
-    @apply focus:border-accent/50 transition-colors duration-150 text-sm;
-    @apply placeholder:text-muted;
+    width: 100%;
+    background-color: var(--color-input);
+    color: var(--color-primary);
+    padding: 12px 16px;
+    border-radius: var(--radius-control);
+    outline: none;
+    border: 1px solid transparent;
+    font-size: 14px;
+    transition: border-color 0.15s;
   }
+  .input-field::placeholder    { color: var(--color-muted); }
+  .input-field:focus           { border-color: rgba(139,124,248,0.4); }
 
-  /* ─── Modal Overlay ────────────────────────────────── */
+  /* ── Modals ────────────────────────────────────────────────────── */
   .modal-overlay {
-    @apply fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.65);
+    backdrop-filter: blur(6px);
+    z-index: 50;
+    display: flex; align-items: center; justify-content: center;
   }
   .modal-card {
-    @apply bg-elevated rounded-xl p-6 w-full max-w-md shadow-2xl animate-fade-in;
+    background: var(--color-elevated);
+    border-radius: var(--radius-panel);
+    padding: 28px;
+    width: 100%; max-width: 420px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+    animation: fade-in 0.15s ease-out;
+    border: 1px solid var(--color-border);
   }
 
-  /* ─── User Profile ─────────────────────────────────── */
+  /* ── User Profile Bar ──────────────────────────────────────────── */
   .user-profile-bar {
-    @apply flex items-center gap-3 p-3 bg-input rounded-lg mx-2 mb-2;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--color-input);
+    border-radius: var(--radius-control);
+    margin: 0 8px 8px;
   }
 
-  /* ─── Voice Cards ──────────────────────────────────── */
+  /* ── Voice Cards ───────────────────────────────────────────────── */
   .voice-participant-card {
-    @apply flex flex-col items-center gap-2 p-4 bg-input rounded-xl;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 16px;
+    background: var(--color-input);
+    border-radius: var(--radius-control);
+  }
+
+  /* ── Message Input Container ───────────────────────────────────── */
+  .message-input-wrap {
+    flex-shrink: 0;
+    padding: 0 16px 16px;
+  }
+
+  .message-input-box {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    background: var(--color-input);
+    border-radius: var(--radius-control);
+    padding: 12px 14px;
+    border: 1px solid transparent;
+    transition: border-color 0.15s;
+  }
+  .message-input-box:focus-within {
+    border-color: rgba(139,124,248,0.25);
   }
 }
 
-/* ─── Utilities ──────────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   UTILITIES
+   ═══════════════════════════════════════════════════════════════════════════ */
 @layer utilities {
   .text-gradient-accent {
-    background: linear-gradient(135deg, #8b7cf8, #a695fa);
+    background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
+
+  .online-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    border: 2px solid var(--color-base);
+  }
+  .online-dot.is-online  { background: var(--color-online); }
+  .online-dot.is-offline { background: var(--color-subtle); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ANIMATIONS
+   ═══════════════════════════════════════════════════════════════════════════ */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
 }

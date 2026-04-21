@@ -17,14 +17,14 @@ export function ChannelSection({ label, channels, activeId, onChannelClick, onAd
   return (
     <div className="mb-4">
       <div className="flex items-center justify-between px-2 mb-1">
-        <span className="text-[10px] font-semibold text-subtle uppercase tracking-wider">{label}</span>
+        <span className="text-xs font-semibold text-subtle uppercase tracking-widest">{label}</span>
         {user?.role === 'ADMIN' && (
           <button
             onClick={onAddChannel}
             className="text-subtle hover:text-primary transition-colors rounded p-0.5"
             title={`Add ${label}`}
           >
-            <Plus size={12} />
+            <Plus size={14} />
           </button>
         )}
       </div>
