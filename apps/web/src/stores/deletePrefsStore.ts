@@ -16,6 +16,10 @@ interface DeletePrefsState {
   // ── Ephemeral modal state (NOT persisted) ───────────────────────
   pending: { count: number; onConfirm: OnConfirm } | null;
 
+  // ── Session-level feedback override (NOT persisted) ────────────
+  // null = fall back to showDeleteFeedback; set any time user touches the toggle
+  sessionFeedback: boolean | null;
+
   // ── Toast (ephemeral) ───────────────────────────────────────────
   toast: string | null;
 
@@ -48,6 +52,7 @@ export const useDeletePrefsStore = create<DeletePrefsState>()(
       // Ephemeral defaults
       pending: null,
       toast:   null,
+      sessionFeedback: null,
 
       openDeleteConfirm: (count, onConfirm) => {
         const { skipDeleteConfirm, showDeleteFeedback, skipBulkFeedbackPrompt } = get();
@@ -67,7 +72,10 @@ export const useDeletePrefsStore = create<DeletePrefsState>()(
         const { pending } = get();
         if (!pending) return;
 
-        const updates: Partial<DeletePrefsState> = { pending: null };
+        const updates: Partial<DeletePrefsState> = {
+          pending: null,
+          sessionFeedback: feedback, // always apply in-session
+        };
         if (dontAskAgain)    updates.skipDeleteConfirm      = true;
         if (rememberFeedback) {
           updates.showDeleteFeedback     = feedback;

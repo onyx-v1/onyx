@@ -48,8 +48,9 @@ export function useMessages(channelId: string) {
     // Only handle deletes here (channel-scoped).
     const handleDeleted = ({ messageId, channelId: cId }: WsEvents.MessageDeleted) => {
       if (cId !== channelId) return;
-      // Read preference at event time (not stale closure)
-      const showFeedback = useDeletePrefsStore.getState().showDeleteFeedback;
+      // sessionFeedback: what user chose this session (overrides stored pref if set)
+      const { showDeleteFeedback, sessionFeedback } = useDeletePrefsStore.getState();
+      const showFeedback = sessionFeedback ?? showDeleteFeedback;
       if (showFeedback) {
         deleteMessage(channelId, messageId);  // shows "Message deleted" italic
       } else {

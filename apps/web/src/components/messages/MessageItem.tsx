@@ -1,10 +1,11 @@
 import { useState, memo } from 'react';
-import { Reply, Copy, Trash2, Check, Pin } from 'lucide-react';
+import { Reply, Copy, Trash2, Check, Pin, X } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { Message } from '@onyx/types';
 import { useAuthStore } from '../../stores/authStore';
 import { useSelectionStore } from '../../stores/selectionStore';
 import { useDeletePrefsStore } from '../../stores/deletePrefsStore';
+import { useMessageStore } from '../../stores/messageStore';
 import { getSocket } from '../../hooks/useSocket';
 import { Avatar } from '../ui/Avatar';
 
@@ -78,6 +79,11 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
     });
   };
 
+  /** Locally removes a deleted-placeholder row without a server call */
+  const handleDismiss = () => {
+    useMessageStore.getState().removeMessage(message.channelId, message.id);
+  };
+
   const handlePin = () => {
     getSocket()?.emit('message:pin', { messageId: message.id });
   };
@@ -93,17 +99,9 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
     onReply();
   };
 
-  /* ── Deleted state ───────────────────────────────────────────────── */
-  if (message.deleted) {
-    return (
-      <div style={{ padding: compact ? '1px 20px' : '6px 20px 2px', display: 'flex', gap: COL_GAP }}>
-        {!compact && <div style={{ width: AVATAR_W, flexShrink: 0 }} />}
-        <span style={{ fontSize: 13, color: 'var(--color-subtle)', fontStyle: 'italic' }}>
-          Message deleted
-        </span>
-      </div>
-    );
-  }
+  // NOTE: deleted messages are NO LONGER an early return —
+  // they keep the full interactive shell (hover, selection) but
+  // render a placeholder body and a Dismiss-only toolbar.
 
   return (
     <div
@@ -209,7 +207,7 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
 
         {/* Content */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          {!compact && (
+          {!message.deleted && !compact && (
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 2 }}>
               <span
                 style={{
@@ -224,9 +222,15 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
               </span>
             </div>
           )}
-          <p style={{ fontSize: 15, color: 'var(--color-primary)', lineHeight: 1.6, wordBreak: 'break-word', margin: 0 }}>
-            {renderContent(message.content, user?.displayName)}
-          </p>
+          {message.deleted ? (
+            <p style={{ fontSize: 13, color: 'var(--color-subtle)', fontStyle: 'italic', margin: 0, lineHeight: 1.6 }}>
+              Message deleted
+            </p>
+          ) : (
+            <p style={{ fontSize: 15, color: 'var(--color-primary)', lineHeight: 1.6, wordBreak: 'break-word', margin: 0 }}>
+              {renderContent(message.content, user?.displayName)}
+            </p>
+          )}
         </div>
       </div>
 
@@ -260,38 +264,47 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
             zIndex: 10,
           }}
         >
-          {/* Select */}
+          {/* Select — always available */}
           <ActionBtn title="Select" onClick={() => enterSelection(message.id)}>
             <Check size={14} />
           </ActionBtn>
 
-          {/* Reply */}
-          <ActionBtn title="Reply" onClick={handleReply}>
-            <Reply size={14} />
-          </ActionBtn>
-
-          {/* Copy */}
-          <ActionBtn title={copied ? 'Copied!' : 'Copy'} onClick={handleCopy}>
-            {copied
-              ? <Check size={14} style={{ color: 'var(--color-online)' }} />
-              : <Copy size={14} />}
-          </ActionBtn>
-
-          {/* Pin / Unpin — admin only */}
-          {isAdmin && (
-            <ActionBtn title={message.pinned ? 'Unpin' : 'Pin'} onClick={handlePin}>
-              <Pin size={14} style={{
-                transform: 'rotate(45deg)',
-                color: message.pinned ? 'var(--color-accent)' : undefined,
-              }} />
+          {message.deleted ? (
+            /* Deleted placeholder — only action is dismissing it from view */
+            <ActionBtn title="Dismiss" onClick={handleDismiss} danger>
+              <X size={14} />
             </ActionBtn>
-          )}
+          ) : (
+            <>
+              {/* Reply */}
+              <ActionBtn title="Reply" onClick={handleReply}>
+                <Reply size={14} />
+              </ActionBtn>
 
-          {/* Delete (own or admin) */}
-          {canDelete && (
-            <ActionBtn title="Delete" onClick={handleDelete} danger>
-              <Trash2 size={14} />
-            </ActionBtn>
+              {/* Copy */}
+              <ActionBtn title={copied ? 'Copied!' : 'Copy'} onClick={handleCopy}>
+                {copied
+                  ? <Check size={14} style={{ color: 'var(--color-online)' }} />
+                  : <Copy size={14} />}
+              </ActionBtn>
+
+              {/* Pin / Unpin — admin only */}
+              {isAdmin && (
+                <ActionBtn title={message.pinned ? 'Unpin' : 'Pin'} onClick={handlePin}>
+                  <Pin size={14} style={{
+                    transform: 'rotate(45deg)',
+                    color: message.pinned ? 'var(--color-accent)' : undefined,
+                  }} />
+                </ActionBtn>
+              )}
+
+              {/* Delete (own or admin) */}
+              {canDelete && (
+                <ActionBtn title="Delete" onClick={handleDelete} danger>
+                  <Trash2 size={14} />
+                </ActionBtn>
+              )}
+            </>
           )}
         </div>
       )}

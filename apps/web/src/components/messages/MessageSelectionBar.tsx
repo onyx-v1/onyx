@@ -58,8 +58,15 @@ export function MessageSelectionBar({ channelId }: Props) {
     // Use the unified confirm modal (handles don't-ask-again + bulk feedback in one pass)
     openDeleteConfirm(deletable.length, (showFeedback) => {
       const socket = getSocket();
+      const { removeMessage } = useMessageStore.getState();
+
       for (const m of deletable) {
-        socket?.emit('message:delete', { messageId: m.id });
+        if (m.deleted) {
+          // Already deleted on server — just remove the placeholder locally
+          removeMessage(m.channelId, m.id);
+        } else {
+          socket?.emit('message:delete', { messageId: m.id });
+        }
       }
       clearSelection();
       if (showFeedback) {
