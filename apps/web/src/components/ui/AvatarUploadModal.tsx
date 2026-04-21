@@ -38,20 +38,13 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 
 interface Props { onClose: () => void; }
 
-// Parse either VITE_CLOUDINARY_URL (monolithic) or individual vars
-// Cloud name and upload preset are NOT secrets — safe to hardcode as fallbacks
+// Reads VITE_CLOUDINARY_URL (set on Railway web service)
+// Format: cloudinary://API_KEY:API_SECRET@CLOUD_NAME
 function getCloudinaryConfig() {
   const url = import.meta.env.VITE_CLOUDINARY_URL ?? '';
   const m   = url.match(/^cloudinary:\/\/(\d+):([^@]+)@(.+)$/);
-  const cloudName = (
-    m?.[3] ??
-    import.meta.env.VITE_CLOUDINARY_CLOUD_NAME ??
-    'dcks1ojja'                // fallback — not a secret
-  );
-  const uploadPreset = (
-    import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET ??
-    'onyx_avatars'             // fallback — must match your Cloudinary preset name
-  );
+  const cloudName    = m?.[3] ?? import.meta.env.VITE_CLOUDINARY_CLOUD_NAME ?? '';
+  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET ?? 'onyx_avatars';
   return { cloudName, uploadPreset };
 }
 

@@ -37,7 +37,7 @@ function parseCloudinaryUrl(raw: string | undefined) {
  */
 async function destroyCloudinaryAsset(url: string, config: ConfigService) {
   try {
-    const creds = parseCloudinaryUrl(config.get<string>('CLOUDINARY_URL'));
+    const creds = parseCloudinaryUrl(config.get<string>('VITE_CLOUDINARY_URL'));
     if (!creds) return; // env var not set — skip
 
     // Extract public_id from URL
