@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AdminGuard } from '../auth/admin.guard';
 import { CommunityService } from './community.service';
@@ -10,22 +11,37 @@ class UpdateNameDto {
 }
 
 @Controller('community')
-@UseGuards(JwtAuthGuard)
 export class CommunityController {
-  constructor(private communityService: CommunityService) {}
+  constructor(
+    private communityService: CommunityService,
+    private config: ConfigService,
+  ) {}
+
+  /** Public — returns runtime config the frontend needs without build-time env vars */
+  @Get('config')
+  getConfig() {
+    const raw  = this.config.get<string>('VITE_CLOUDINARY_URL') ?? '';
+    const m    = raw.match(/^cloudinary:\/\/(\d+):([^@]+)@(.+)$/);
+    return {
+      cloudinaryCloudName:    m?.[3] ?? '',
+      cloudinaryUploadPreset: 'onyx_avatars',
+    };
+  }
 
   @Get()
+  @UseGuards(JwtAuthGuard)
   getCommunity() {
     return this.communityService.getCommunity();
   }
 
   @Get('members')
+  @UseGuards(JwtAuthGuard)
   getMembers() {
     return this.communityService.getMembers();
   }
 
   @Patch('name')
-  @UseGuards(AdminGuard)
+  @UseGuards(JwtAuthGuard, AdminGuard)
   updateName(@Body() dto: UpdateNameDto) {
     return this.communityService.updateName(dto.name);
   }
