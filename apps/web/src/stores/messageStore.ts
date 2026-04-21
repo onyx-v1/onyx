@@ -58,6 +58,8 @@ export const useMessageStore = create<MessageState>((set, get) => ({
   addMessage: (channelId, message) =>
     set((s) => {
       const existing = s.messages.get(channelId) ?? [];
+      // Deduplicate — skip if message with same ID already exists
+      if (existing.some((m) => m.id === message.id)) return s;
       const nextMessages = new Map(s.messages);
       nextMessages.set(channelId, [...existing, message]);
       return { messages: nextMessages };

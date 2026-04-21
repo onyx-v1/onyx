@@ -11,65 +11,85 @@ interface Props {
   onReply: (message: Message) => void;
 }
 
-export function MessageList({ messages, hasMore, isLoading, onLoadMore, onReply }: Props) {
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const prevScrollHeight = useRef<number>(0);
-  const isAtBottom = useRef(true);
+// Group consecutive messages from the same author within 5 minutes
+function groupMessages(messages: Message[]) {
+  return messages.map((msg, i) => {
+    const prev = messages[i - 1];
+    const compact =
+      !!prev &&
+      !msg.replyTo &&
+      !msg.deleted &&
+      prev.author.id === msg.author.id &&
+      new Date(msg.createdAt).getTime() - new Date(prev.createdAt).getTime() < 5 * 60_000;
+    return { message: msg, compact };
+  });
+}
 
-  // Auto-scroll to bottom on new messages if user is at bottom
+export function MessageList({ messages, hasMore, isLoading, onLoadMore, onReply }: Props) {
+  const containerRef       = useRef<HTMLDivElement>(null);
+  const bottomRef          = useRef<HTMLDivElement>(null);
+  const isAtBottom         = useRef(true);
+  const savedScrollHeight  = useRef(0);  // only set when we're about to prepend old messages
+  const lastMessageCount   = useRef(messages.length);
+
+  /* ── Auto-scroll to bottom when new messages arrive ─────────────── */
   useEffect(() => {
+    // Only scroll down if user was at the bottom before the new message
     if (isAtBottom.current) {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
+
+    // Reset savedScrollHeight after a prepend has been corrected
+    if (messages.length > lastMessageCount.current) {
+      const container = containerRef.current;
+      if (container && savedScrollHeight.current > 0) {
+        // Restore position after prepending older messages
+        container.scrollTop += container.scrollHeight - savedScrollHeight.current;
+        savedScrollHeight.current = 0;
+      }
+    }
+    lastMessageCount.current = messages.length;
   }, [messages.length]);
 
-  // Preserve scroll position when loading old messages
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const diff = container.scrollHeight - prevScrollHeight.current;
-    if (diff > 0 && prevScrollHeight.current > 0) container.scrollTop += diff;
-  }, [messages]);
-
+  /* ── Scroll handler — track position + trigger load-more ────────── */
   const handleScroll = () => {
-    const container = containerRef.current;
-    if (!container) return;
-    const { scrollTop, scrollHeight, clientHeight } = container;
+    const el = containerRef.current;
+    if (!el) return;
+    const { scrollTop, scrollHeight, clientHeight } = el;
+
+    // Are we within 80px of the bottom?
     isAtBottom.current = scrollHeight - scrollTop - clientHeight < 80;
-    if (scrollTop < 100 && hasMore && !isLoading) {
-      prevScrollHeight.current = scrollHeight;
+
+    // Near the top — load older messages
+    if (scrollTop < 120 && hasMore && !isLoading) {
+      savedScrollHeight.current = scrollHeight; // save before prepend
       onLoadMore();
     }
   };
 
-  // Group consecutive messages from the same author (within 5 min)
-  const grouped = messages.reduce<Array<{ message: Message; compact: boolean }>>((acc, msg, i) => {
-    const prev = messages[i - 1];
-    const compact =
-      !!prev &&
-      prev.author.id === msg.author.id &&
-      !msg.replyTo &&
-      new Date(msg.createdAt).getTime() - new Date(prev.createdAt).getTime() < 5 * 60 * 1000;
-    acc.push({ message: msg, compact });
-    return acc;
-  }, []);
+  const grouped = groupMessages(messages);
 
   return (
     <div
       ref={containerRef}
-      className="flex-1 overflow-y-auto px-2 py-4"
       onScroll={handleScroll}
+      style={{
+        flex: 1,
+        overflowY: 'auto',
+        padding: '8px 0 4px',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
     >
-      {/* Load more spinner */}
+      {/* Load-older spinner */}
       {isLoading && (
-        <div className="flex justify-center py-4">
-          <Loader2 size={16} className="text-muted animate-spin" />
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0' }}>
+          <Loader2 size={16} style={{ color: 'var(--color-muted)', animation: 'spin 1s linear infinite' }} />
         </div>
       )}
 
       {/* Messages */}
-      <div className="flex flex-col gap-0.5">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         {grouped.map(({ message, compact }) => (
           <MessageItem
             key={message.id}
@@ -80,7 +100,8 @@ export function MessageList({ messages, hasMore, isLoading, onLoadMore, onReply 
         ))}
       </div>
 
-      <div ref={bottomRef} />
+      {/* Anchor for scroll-to-bottom */}
+      <div ref={bottomRef} style={{ height: 1 }} />
     </div>
   );
 }

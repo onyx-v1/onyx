@@ -1,64 +1,35 @@
-import { useState, useEffect } from 'react';
+import { useSocketStore } from '../../stores/socketStore';
 import { getSocket } from '../../hooks/useSocket';
 
-type Status = 'connected' | 'reconnecting' | 'disconnected';
-
 export function ConnectionStatus() {
-  const [status, setStatus] = useState<Status>('disconnected');
+  // connectionId changes on every connect → component re-renders reactively
+  const connectionId = useSocketStore((s) => s.connectionId);
 
-  useEffect(() => {
-    const check = () => {
-      const s = getSocket();
-      if (!s) { setStatus('disconnected'); return; }
-      if (s.connected) { setStatus('connected'); return; }
-      setStatus('reconnecting');
-    };
+  const socket = getSocket();
+  const isConnected    = connectionId > 0 && socket?.connected === true;
+  const isReconnecting = connectionId === 0 || socket?.disconnected === true;
 
-    // Poll every 2s for status changes
-    check();
-    const interval = setInterval(check, 2000);
+  const status = isConnected ? 'connected' : isReconnecting ? 'reconnecting' : 'disconnected';
 
-    // Also react to socket events directly
-    const socket = getSocket();
-    if (socket) {
-      socket.on('connect',    () => setStatus('connected'));
-      socket.on('disconnect', () => setStatus('disconnected'));
-      socket.on('reconnecting', () => setStatus('reconnecting'));
-    }
-
-    return () => {
-      clearInterval(interval);
-      const s = getSocket();
-      if (s) {
-        s.off('connect');
-        s.off('disconnect');
-        s.off('reconnecting');
-      }
-    };
-  }, []);
-
-  const config = {
-    connected:    { color: 'var(--color-online)',  label: 'Connected',    animate: false },
-    reconnecting: { color: 'var(--color-warning)', label: 'Reconnecting…', animate: true  },
-    disconnected: { color: 'var(--color-danger)',  label: 'Disconnected', animate: false },
+  const cfg = {
+    connected:    { color: 'var(--color-online)',  label: 'Connected'    },
+    reconnecting: { color: 'var(--color-warning)', label: 'Reconnecting…' },
+    disconnected: { color: 'var(--color-danger)',  label: 'Disconnected' },
   }[status];
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px 8px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 16px 8px' }}>
       <span
         style={{
-          width: 7,
-          height: 7,
+          width: 6,
+          height: 6,
           borderRadius: '50%',
-          background: config.color,
+          background: cfg.color,
           flexShrink: 0,
-          boxShadow: config.animate ? `0 0 6px ${config.color}` : 'none',
-          animation: config.animate ? 'pulse-ring 1.2s ease-in-out infinite' : 'none',
+          boxShadow: status === 'connected' ? `0 0 5px ${cfg.color}` : 'none',
         }}
       />
-      <span style={{ fontSize: 11, color: 'var(--color-subtle)' }}>
-        {config.label}
-      </span>
+      <span style={{ fontSize: 11, color: 'var(--color-subtle)' }}>{cfg.label}</span>
     </div>
   );
 }

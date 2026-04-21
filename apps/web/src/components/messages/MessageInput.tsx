@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, KeyboardEvent } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { Send, X, CornerUpLeft } from 'lucide-react';
 import { Message } from '@onyx/types';
 import { getSocket } from '../../hooks/useSocket';
@@ -9,51 +9,54 @@ interface Props {
   onCancelReply: () => void;
 }
 
-let typingTimeout: ReturnType<typeof setTimeout> | null = null;
-
 export function MessageInput({ channelId, replyTo, onCancelReply }: Props) {
-  const [content, setContent] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const isTyping = useRef(false);
+  const contentRef  = useRef('');              // avoids state for perf-sensitive input
+  const isTyping    = useRef(false);
+  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null); // per-instance, not global
 
-  /* ── Typing indicators ─────────────────────────────────────────── */
-  const sendTypingStart = useCallback(() => {
-    const socket = getSocket();
+  /* ── Stop typing helper ─────────────────────────────────────────── */
+  const stopTyping = useCallback(() => {
+    if (typingTimer.current) { clearTimeout(typingTimer.current); typingTimer.current = null; }
+    if (isTyping.current) {
+      isTyping.current = false;
+      getSocket()?.emit('typing:stop', { channelId });
+    }
+  }, [channelId]);
+
+  /* ── Start typing ───────────────────────────────────────────────── */
+  const startTyping = useCallback(() => {
     if (!isTyping.current) {
       isTyping.current = true;
-      socket?.emit('typing:start', { channelId });
+      getSocket()?.emit('typing:start', { channelId });
     }
-    if (typingTimeout) clearTimeout(typingTimeout);
-    typingTimeout = setTimeout(() => {
-      isTyping.current = false;
-      socket?.emit('typing:stop', { channelId });
-    }, 3000);
-  }, [channelId]);
+    if (typingTimer.current) clearTimeout(typingTimer.current);
+    typingTimer.current = setTimeout(stopTyping, 3000);
+  }, [channelId, stopTyping]);
 
-  const sendTypingStop = useCallback(() => {
-    if (typingTimeout) clearTimeout(typingTimeout);
-    isTyping.current = false;
-    getSocket()?.emit('typing:stop', { channelId });
-  }, [channelId]);
+  /* ── Clean up typing state when channel changes or component unmounts */
+  useEffect(() => () => stopTyping(), [channelId]);
 
   /* ── Auto-resize textarea ──────────────────────────────────────── */
-  const autoResize = () => {
+  const autoResize = useCallback(() => {
     const ta = textareaRef.current;
     if (!ta) return;
     ta.style.height = 'auto';
-    ta.style.height = Math.min(ta.scrollHeight, 180) + 'px';
-  };
+    ta.style.height = `${Math.min(ta.scrollHeight, 180)}px`;
+  }, []);
 
-  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setContent(e.target.value);
+  /* ── Input handler ──────────────────────────────────────────────── */
+  const handleInput = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    contentRef.current = e.target.value;
     autoResize();
-    if (e.target.value.trim()) sendTypingStart();
-    else sendTypingStop();
-  };
+    if (e.target.value.trim()) startTyping(); else stopTyping();
+    // Force re-render so send button updates
+    e.currentTarget.dispatchEvent(new Event('input-updated'));
+  }, [autoResize, startTyping, stopTyping]);
 
   /* ── Send ──────────────────────────────────────────────────────── */
-  const handleSend = () => {
-    const trimmed = content.trim();
+  const handleSend = useCallback(() => {
+    const trimmed = contentRef.current.trim();
     if (!trimmed) return;
 
     getSocket()?.emit('message:send', {
@@ -62,22 +65,30 @@ export function MessageInput({ channelId, replyTo, onCancelReply }: Props) {
       ...(replyTo ? { replyToId: replyTo.id } : {}),
     });
 
-    setContent('');
-    onCancelReply();
-    sendTypingStop();
+    // Clear textarea
     if (textareaRef.current) {
+      textareaRef.current.value = '';
       textareaRef.current.style.height = 'auto';
     }
-  };
+    contentRef.current = '';
+    onCancelReply();
+    stopTyping();
+  }, [channelId, replyTo, onCancelReply, stopTyping]);
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
-  };
+  }, [handleSend]);
 
-  const isEmpty = !content.trim();
+  /* ── Focus input when channel changes ──────────────────────────── */
+  useEffect(() => {
+    textareaRef.current?.focus();
+    // Reset content for new channel
+    if (textareaRef.current) textareaRef.current.value = '';
+    contentRef.current = '';
+  }, [channelId]);
 
   return (
     <div className="message-input-wrap">
@@ -89,36 +100,29 @@ export function MessageInput({ channelId, replyTo, onCancelReply }: Props) {
             alignItems: 'center',
             gap: 8,
             marginBottom: 4,
-            padding: '8px 14px',
+            padding: '7px 14px',
             background: 'var(--color-elevated)',
             borderRadius: 'var(--radius-control) var(--radius-control) 0 0',
-            borderLeft: '3px solid var(--color-accent)',
+            borderLeft: '2px solid var(--color-accent)',
           }}
         >
-          <CornerUpLeft size={14} style={{ color: 'var(--color-accent)', flexShrink: 0 }} />
+          <CornerUpLeft size={13} style={{ color: 'var(--color-accent)', flexShrink: 0 }} />
           <span style={{ fontSize: 13, color: 'var(--color-muted)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             Replying to{' '}
             <strong style={{ color: 'var(--color-primary)' }}>{replyTo.author.displayName}</strong>
             {' — '}
-            <span style={{ opacity: 0.65 }}>{replyTo.content}</span>
+            <span style={{ opacity: 0.6 }}>{replyTo.content}</span>
           </span>
-          <button
-            onClick={onCancelReply}
-            style={{ color: 'var(--color-muted)', lineHeight: 0 }}
-            className="btn-ghost"
-            title="Cancel reply"
-          >
-            <X size={14} />
+          <button onClick={onCancelReply} className="btn-ghost" title="Cancel reply" style={{ padding: 4 }}>
+            <X size={13} style={{ color: 'var(--color-muted)' }} />
           </button>
         </div>
       )}
 
       {/* ── Input box ────────────────────────────────────────────── */}
       <div className="message-input-box">
-        {/* Textarea */}
         <textarea
           ref={textareaRef}
-          value={content}
           onChange={handleInput}
           onKeyDown={handleKeyDown}
           placeholder="Send a message…"
@@ -132,39 +136,30 @@ export function MessageInput({ channelId, replyTo, onCancelReply }: Props) {
             lineHeight: 1.6,
             color: 'var(--color-primary)',
             maxHeight: 180,
+            border: 'none',
           }}
-          className="placeholder:text-muted"
         />
 
-        {/* Hint + Send button */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          {content.length > 0 && (
-            <span style={{ fontSize: 11, color: 'var(--color-subtle)', whiteSpace: 'nowrap' }}>
-              ⇧↵ newline
-            </span>
-          )}
-          <button
-            onClick={handleSend}
-            disabled={isEmpty}
-            title="Send (Enter)"
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 'var(--radius-sm)',
-              background: isEmpty ? 'rgba(139,124,248,0.15)' : 'var(--color-accent)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'background 0.15s, transform 0.1s',
-              cursor: isEmpty ? 'not-allowed' : 'pointer',
-            }}
-          >
-            <Send
-              size={16}
-              style={{ color: isEmpty ? 'var(--color-subtle)' : '#fff', transform: isEmpty ? 'none' : 'none' }}
-            />
-          </button>
-        </div>
+        <button
+          onClick={handleSend}
+          title="Send (Enter)"
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: '50%',
+            background: 'var(--color-accent)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            transition: 'opacity 0.15s, transform 0.1s',
+            cursor: 'pointer',
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(1.08)'; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
+        >
+          <Send size={15} style={{ color: '#fff' }} />
+        </button>
       </div>
     </div>
   );
