@@ -5,7 +5,7 @@ export interface User {
   username: string;
   displayName: string;
   role: 'ADMIN' | 'MEMBER';
-  createdAt: string;
+  createdAt: string | Date;
 }
 
 export interface Channel {
@@ -34,7 +34,7 @@ export interface Message {
       displayName: string;
     };
   } | null;
-  createdAt: string;
+  createdAt: string | Date;
   deleted: boolean;
 }
 
