@@ -51,7 +51,7 @@ export function useMessages(channelId: string) {
   const loadMore = useCallback(() => {
     if (!channelHasMore || isLoading) return;
     const oldest = channelMessages[0];
-    if (oldest) fetchHistory(channelId, oldest.createdAt);
+    if (oldest) fetchHistory(channelId, String(oldest.createdAt));
   }, [channelId, channelMessages, channelHasMore, isLoading]);
 
   return {

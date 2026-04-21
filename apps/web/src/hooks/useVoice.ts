@@ -50,7 +50,7 @@ export function useVoice() {
       if (localStream.current && navigator.mediaDevices) {
         try {
           const ctx = new AudioContext();
-          const src = ctx.createMediaStreamSource(event.streams?.[0] ?? localStream.current);
+          const src = ctx.createMediaStreamSource(localStream.current!);
           const analyser = ctx.createAnalyser();
           analyser.fftSize = 256;
           src.connect(analyser);

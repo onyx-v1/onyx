@@ -1,4 +1,4 @@
-import { Mic, MicOff, Headphones, HeadphoneOff, PhoneOff } from 'lucide-react';
+import { Mic, MicOff, Headphones, EarOff, PhoneOff } from 'lucide-react';
 import { useVoiceStore } from '../../stores/voiceStore';
 import { useVoice } from '../../hooks/useVoice';
 
@@ -32,7 +32,7 @@ export function VoiceControls() {
         }`}
         title={isDeafened ? 'Undeafen' : 'Deafen'}
       >
-        {isDeafened ? <HeadphoneOff size={20} /> : <Headphones size={20} />}
+        {isDeafened ? <EarOff size={20} /> : <Headphones size={20} />}
         <span className="text-[10px]">{isDeafened ? 'Undeafen' : 'Deafen'}</span>
       </button>
 
