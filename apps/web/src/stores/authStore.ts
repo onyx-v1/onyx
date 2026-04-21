@@ -35,6 +35,12 @@ export const useAuthStore = create<AuthState>()(
         try {
           if (refreshToken) await apiClient.post('/auth/logout', { refreshToken });
         } catch {}
+        // Kill the socket so it doesn't linger with the old token
+        try {
+          const { getSocket } = await import('../hooks/useSocket');
+          const s = getSocket();
+          if (s) { s.removeAllListeners(); s.disconnect(); }
+        } catch {}
         set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false });
       },
     }),

@@ -65,13 +65,14 @@ apiClient.interceptors.response.use(
       const refreshToken = stored?.state?.refreshToken;
       if (!refreshToken) throw new Error('No refresh token');
 
-      const { data } = await axios.post<{ accessToken: string }>(
+      const { data } = await axios.post<{ accessToken: string; refreshToken?: string }>(
         `${API_URL}/auth/refresh`,
         { refreshToken },
       );
 
-      // Persist new access token
+      // Persist new access token (and rotated refresh token if returned)
       stored.state.accessToken = data.accessToken;
+      if (data.refreshToken) stored.state.refreshToken = data.refreshToken;
       localStorage.setItem('onyx-auth', JSON.stringify(stored));
 
       // Update Zustand store in-place (no import needed — use the persisted storage)

@@ -2,7 +2,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Settings, Shield } from 'lucide-react';
 import { useChannelStore } from '../../stores/channelStore';
 import { useAuthStore } from '../../stores/authStore';
-import { usePresenceStore } from '../../stores/presenceStore';
+import { usePresenceStore, selectIsOnline } from '../../stores/presenceStore';
 import { useVoiceStore } from '../../stores/voiceStore';
 import { useVoice } from '../../hooks/useVoice';
 import { ChannelSection } from '../channels/ChannelSection';
@@ -14,7 +14,7 @@ export function Sidebar() {
   const location = useLocation();
   const { channels, activeChannelId, setActiveChannel, communityName } = useChannelStore();
   const { user, logout } = useAuthStore();
-  const isOnline = usePresenceStore((s) => s.isOnline);
+  const isUserOnline    = usePresenceStore(selectIsOnline(user?.id ?? ''));
   const { isConnected: inVoice } = useVoiceStore();
   const { leaveVoice } = useVoice();
 
@@ -71,7 +71,7 @@ export function Sidebar() {
           <div className="relative flex-shrink-0">
             <Avatar displayName={user?.displayName ?? ''} size="sm" />
             <span
-              className={`online-dot absolute -bottom-0.5 -right-0.5 ${user && isOnline(user.id) ? 'is-online' : 'is-offline'}`}
+              className={`online-dot absolute -bottom-0.5 -right-0.5 ${isUserOnline ? 'is-online' : 'is-offline'}`}
             />
           </div>
           <div className="flex-1 min-w-0">

@@ -2,13 +2,12 @@ import { create } from 'zustand';
 
 interface PresenceState {
   onlineUsers: Set<string>;
-  setOnline: (userId: string) => void;
-  setOffline: (userId: string) => void;
+  setOnline:    (userId: string) => void;
+  setOffline:   (userId: string) => void;
   initPresence: (userIds: string[]) => void;
-  isOnline: (userId: string) => boolean;
 }
 
-export const usePresenceStore = create<PresenceState>((set, get) => ({
+export const usePresenceStore = create<PresenceState>((set) => ({
   onlineUsers: new Set(),
 
   initPresence: (userIds) => set({ onlineUsers: new Set(userIds) }),
@@ -26,6 +25,9 @@ export const usePresenceStore = create<PresenceState>((set, get) => ({
       next.delete(userId);
       return { onlineUsers: next };
     }),
-
-  isOnline: (userId) => get().onlineUsers.has(userId),
 }));
+
+// Selector used outside the store — avoids storing a function in Zustand state
+// which breaks equality checks and causes unnecessary re-renders.
+export const selectIsOnline = (userId: string) =>
+  (state: PresenceState) => state.onlineUsers.has(userId);

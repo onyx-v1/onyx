@@ -8,19 +8,21 @@ import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 
 export function AppShell() {
-  useSocket();      // initializes the singleton socket
-  usePresence();    // presence updates
+  useSocket();
+  usePresence();
 
-  const navigate   = useNavigate();
+  const navigate     = useNavigate();
   const connectionId = useSocketStore((s) => s.connectionId);
   const { fetchCommunity, activeChannelId, channels, setChannels } = useChannelStore();
 
-  /* ── Load community + channels on mount ─────────────────────────── */
+  /* ── Load community on mount ─────────────────────────────────────── */
   useEffect(() => {
-    fetchCommunity();
+    fetchCommunity().catch(() => {
+      // 401 interceptor will redirect to login; other errors are silent retries
+    });
   }, []);
 
-  /* ── Navigate to first channel after initial load ───────────────── */
+  /* ── Navigate to first channel once loaded ───────────────────────── */
   useEffect(() => {
     if (!activeChannelId || !channels.length) return;
     if (window.location.pathname !== '/') return;
@@ -29,15 +31,10 @@ export function AppShell() {
   }, [activeChannelId, channels]);
 
   /* ── channels:updated — re-runs when socket is ready ────────────── */
-  // Uses connectionId so this effect re-runs every time the socket connects,
-  // preventing the listener from being lost when the socket was null on mount.
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
-
-    const handle = ({ channels: updated }: { channels: any[] }) => {
-      setChannels(updated);
-    };
+    const handle = ({ channels: updated }: { channels: any[] }) => setChannels(updated);
     socket.on('channels:updated', handle);
     return () => { socket.off('channels:updated', handle); };
   }, [connectionId]);

@@ -4,6 +4,14 @@ import { AppModule } from './app.module';
 import { RedisIoAdapter } from './adapters/redis-io.adapter';
 
 async function bootstrap() {
+  // ── Fail fast on missing critical environment variables ────────────────────
+  const REQUIRED_ENV = ['JWT_SECRET', 'JWT_REFRESH_SECRET', 'DATABASE_URL'];
+  const missing = REQUIRED_ENV.filter((k) => !process.env[k]);
+  if (missing.length) {
+    console.error(`\n❌ Missing required environment variables: ${missing.join(', ')}\n`);
+    process.exit(1);
+  }
+
   const app = await NestFactory.create(AppModule, { logger: ['log', 'warn', 'error'] });
 
   // ── Redis-backed Socket.IO adapter ──────────────────────────────────────────

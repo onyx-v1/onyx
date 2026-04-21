@@ -44,7 +44,7 @@ export function AppRouter() {
           </PrivateRoute>
         }
       >
-        <Route index element={<Navigate to="/channel/default" replace />} />
+        <Route index element={null} />
         <Route path="channel/:channelId" element={<ChannelPage />} />
         <Route path="voice/:channelId" element={<VoicePage />} />
       </Route>

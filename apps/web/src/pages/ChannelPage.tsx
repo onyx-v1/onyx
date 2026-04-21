@@ -10,22 +10,41 @@ import { Hash } from 'lucide-react';
 
 export function ChannelPage() {
   const { channelId } = useParams<{ channelId: string }>();
-  const { channels } = useChannelStore();
-  const [replyTo, setReplyTo] = useState<Message | null>(null);
 
-  const channel = channels.find((c) => c.id === channelId);
-  const { messages, hasMore, isLoading, loadMore } = useMessages(channelId ?? '');
-
+  // Guard BEFORE any hook that depends on channelId
   if (!channelId) return <Navigate to="/" replace />;
 
-  return (
-    // key forces full remount on channel switch — prevents stale scroll state
-    <div key={channelId} className="flex flex-col h-full" style={{ animation: 'channel-enter 0.18s ease-out' }}>
+  return <ChannelView key={channelId} channelId={channelId} />;
+}
 
-      {/* Scrollable message area — always flex-1 so input stays at bottom */}
+// Separated so hooks only run when channelId is guaranteed truthy
+function ChannelView({ channelId }: { channelId: string }) {
+  const { channels } = useChannelStore();
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const { messages, hasMore, isLoading, loadMore, error } = useMessages(channelId);
+
+  const channel = channels.find((c) => c.id === channelId);
+
+  const handleReply = (msg: Message) => setReplyTo(msg);
+  const cancelReply = () => setReplyTo(null);
+
+  return (
+    <div className="flex flex-col h-full" style={{ animation: 'channel-enter 0.18s ease-out' }}>
+
+      {/* Scrollable message area */}
       <div className="flex-1 overflow-hidden flex flex-col">
-        {messages.length === 0 && !isLoading ? (
-          /* Empty state — lives inside the flex-1 box */
+        {error ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-2">
+            <p style={{ fontSize: 14, color: 'var(--color-danger)' }}>Failed to load messages.</p>
+            <button
+              onClick={() => loadMore()}
+              className="btn-ghost"
+              style={{ fontSize: 13, color: 'var(--color-accent)' }}
+            >
+              Retry
+            </button>
+          </div>
+        ) : messages.length === 0 && !isLoading ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-3 px-8">
             <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center">
               <Hash size={28} className="text-accent" />
@@ -41,7 +60,7 @@ export function ChannelPage() {
             hasMore={hasMore}
             isLoading={isLoading}
             onLoadMore={loadMore}
-            onReply={setReplyTo}
+            onReply={handleReply}
           />
         )}
       </div>
@@ -51,7 +70,7 @@ export function ChannelPage() {
       <MessageInput
         channelId={channelId}
         replyTo={replyTo}
-        onCancelReply={() => setReplyTo(null)}
+        onCancelReply={cancelReply}
       />
     </div>
   );

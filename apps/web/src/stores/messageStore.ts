@@ -42,7 +42,9 @@ export const useMessageStore = create<MessageState>((set, get) => ({
         nextMessages.set(channelId, merged);
 
         const nextHasMore = new Map(s.hasMore);
-        nextHasMore.set(channelId, incoming.length === 50);
+        // Use >= 50: if exactly 50 returned, assume there may be more.
+        // If a subsequent fetch returns 0, hasMore flips to false cleanly.
+        nextHasMore.set(channelId, incoming.length >= 50);
 
         return { messages: nextMessages, hasMore: nextHasMore };
       });

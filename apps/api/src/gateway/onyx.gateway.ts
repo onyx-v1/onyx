@@ -40,7 +40,23 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   private voiceRooms   = new Map<string, Map<string, string>>(); // channelId → Map<userId, socketId>
   private typingState  = new Map<string, Map<string, { displayName: string; timer: NodeJS.Timeout }>>();
 
-  // ── Throttle: one typing:update broadcast per channel per 500 ms ─────────────
+  // ── Rate limiter: max 10 messages per 5 seconds per socket ───────────────────
+  private msgRateMap = new Map<string, { count: number; resetAt: number }>();
+
+  private isRateLimited(socketId: string): boolean {
+    const now    = Date.now();
+    const WINDOW = 5_000; // 5 s
+    const LIMIT  = 10;    // messages per window
+    const entry  = this.msgRateMap.get(socketId);
+    if (!entry || now > entry.resetAt) {
+      this.msgRateMap.set(socketId, { count: 1, resetAt: now + WINDOW });
+      return false;
+    }
+    entry.count++;
+    return entry.count > LIMIT;
+  }
+
+  // ── Throttle: one typing:update broadcast per channel per 400 ms ─────────────
   private typingThrottle = new Map<string, NodeJS.Timeout>();
 
   // ── Debounce: presence:update batched per tick to avoid N broadcasts on mass joins
@@ -158,11 +174,23 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     @ConnectedSocket() client: AuthSocket,
     @MessageBody() data: { channelId: string; content: string; replyToId?: string },
   ) {
-    if (!data.content?.trim()) return;
+    const content = data.content?.trim();
+    if (!content) return;
+    if (content.length > 2000) return; // enforce server-side limit
+    if (this.isRateLimited(client.id)) return; // rate limit: 10 msg / 5s
+
+    // Validate replyToId belongs to the SAME channel (prevent cross-channel leakage)
+    if (data.replyToId) {
+      const reply = await this.prisma.message.findUnique({
+        where: { id: data.replyToId },
+        select: { channelId: true },
+      });
+      if (!reply || reply.channelId !== data.channelId) return;
+    }
 
     const message = await this.prisma.message.create({
       data: {
-        content: data.content.trim(),
+        content,
         channelId: data.channelId,
         authorId: client.user.id,
         ...(data.replyToId ? { replyToId: data.replyToId } : {}),
@@ -217,6 +245,14 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   @SubscribeMessage('voice:join')
   async handleVoiceJoin(@ConnectedSocket() client: AuthSocket, @MessageBody() data: { channelId: string }) {
     const { channelId } = data;
+
+    // Validate this is actually a VOICE channel
+    const channel = await this.prisma.channel.findUnique({
+      where: { id: channelId },
+      select: { type: true },
+    });
+    if (!channel || channel.type !== 'VOICE') return;
+
     if (!this.voiceRooms.has(channelId)) this.voiceRooms.set(channelId, new Map());
     const room = this.voiceRooms.get(channelId)!;
 

@@ -60,9 +60,7 @@ export class AuthService {
     });
 
     if (!session || session.expiresAt < new Date()) {
-      if (session) {
-        await this.prisma.session.delete({ where: { id: session.id } });
-      }
+      if (session) await this.prisma.session.delete({ where: { id: session.id } });
       throw new UnauthorizedException('Session expired. Please log in again.');
     }
 
@@ -77,7 +75,21 @@ export class AuthService {
       secret: this.config.get<string>('JWT_SECRET'),
     });
 
-    return { accessToken };
+    // Rotate refresh token — invalidates old one, issues new 7-day token
+    const newRefreshToken = this.jwtService.sign(payload, {
+      expiresIn: '7d',
+      secret: this.config.get<string>('JWT_REFRESH_SECRET'),
+    });
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    await this.prisma.session.update({
+      where: { id: session.id },
+      data: { refreshToken: newRefreshToken, expiresAt },
+    });
+
+    return { accessToken, refreshToken: newRefreshToken };
   }
 
   async logout(dto: RefreshDto) {
