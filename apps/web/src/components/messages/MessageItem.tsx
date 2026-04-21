@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Reply, Copy, Trash2, CornerUpLeft } from 'lucide-react';
+import { Reply, Copy, Trash2 } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { Message } from '@onyx/types';
 import { useAuthStore } from '../../stores/authStore';
@@ -62,12 +62,31 @@ export function MessageItem({ message, compact, onReply }: Props) {
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        {/* Reply preview */}
+        {/* ── Discord-style reply preview ─────────────────── */}
         {message.replyTo && (
-          <div className="flex items-center gap-2 mb-1 text-xs text-muted">
-            <CornerUpLeft size={12} className="flex-shrink-0" />
-            <span className="font-medium">{message.replyTo.author.displayName}</span>
-            <span className="truncate opacity-70">{message.replyTo.content}</span>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4, position: 'relative' }}>
+            {/* Curved connector line */}
+            <div style={{
+              width: 28,
+              height: 14,
+              marginRight: 6,
+              flexShrink: 0,
+              borderTop: '2px solid rgba(255,255,255,0.18)',
+              borderLeft: '2px solid rgba(255,255,255,0.18)',
+              borderTopLeftRadius: 8,
+              marginTop: 2,
+            }} />
+
+            {/* Mini avatar */}
+            <Avatar displayName={message.replyTo.author.displayName} size="xs" />
+
+            {/* @name + preview */}
+            <span style={{ marginLeft: 6, fontSize: 13, color: 'var(--color-muted)', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+              <span style={{ fontWeight: 600, color: 'var(--color-accent-hover)', marginRight: 4 }}>
+                @{message.replyTo.author.displayName}
+              </span>
+              <span style={{ opacity: 0.7 }}>{message.replyTo.deleted ? 'Original message was deleted' : message.replyTo.content}</span>
+            </span>
           </div>
         )}
 

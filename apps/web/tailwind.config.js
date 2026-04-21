@@ -5,27 +5,27 @@ export default {
     extend: {
       // ── Design Tokens ───────────────────────────────────────────────────────
       colors: {
-        base:     'var(--color-base)',
-        panel:    'var(--color-panel)',
-        hover:    'var(--color-hover)',
-        active:   'var(--color-active)',
-        elevated: 'var(--color-elevated)',
-        input:    'var(--color-input)',
-        border:   'var(--color-border)',
+        base:     '#181818',
+        panel:    '#202020',
+        hover:    '#252525',
+        active:   '#2c2c2c',
+        elevated: '#2a2a2a',
+        input:    '#1e1e1e',
+        border:   'rgba(255,255,255,0.06)',
 
         accent: {
-          DEFAULT: 'var(--color-accent)',
-          hover:   'var(--color-accent-hover)',
-          muted:   'var(--color-accent-muted)',
+          DEFAULT: '#8b7cf8',
+          hover:   '#a695fa',
+          muted:   'rgba(139,124,248,0.15)',
         },
 
-        primary:  'var(--color-primary)',
-        muted:    'var(--color-muted)',
-        subtle:   'var(--color-subtle)',
+        primary:  '#f2f2f2',
+        muted:    '#a0a0a0',
+        subtle:   '#606060',
 
-        online:   'var(--color-online)',
-        danger:   'var(--color-danger)',
-        warning:  'var(--color-warning)',
+        online:   '#3ecf8e',
+        danger:   '#f04040',
+        warning:  '#f59e0b',
       },
 
       // ── Layout Dimensions ───────────────────────────────────────────────────
