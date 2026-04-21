@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
-import { Loader2 } from 'lucide-react';
+import { ArrowRight, Loader2 } from 'lucide-react';
 
 export function LoginPage() {
   const [username, setUsername] = useState('');
@@ -19,80 +19,110 @@ export function LoginPage() {
       await login(username.trim());
       navigate('/', { replace: true });
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Login failed. Check your User ID.');
+      setError(err.response?.data?.message || 'Invalid user ID.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="h-screen flex items-center justify-center bg-base relative overflow-hidden">
-      {/* Background ambient glow */}
-      <div
-        className="absolute inset-0 pointer-events-none"
+    <div
+      style={{
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'var(--color-base)',
+        gap: 32,
+      }}
+    >
+      {/* Wordmark */}
+      <h1
         style={{
-          background: 'radial-gradient(ellipse 60% 40% at 50% 60%, rgba(139,124,248,0.06) 0%, transparent 70%)',
+          fontSize: 42,
+          fontWeight: 800,
+          letterSpacing: '-0.03em',
+          color: 'var(--color-primary)',
+          margin: 0,
+          lineHeight: 1,
         }}
-      />
+      >
+        Onyx
+      </h1>
 
-      <div className="w-full max-w-sm px-6 relative z-10 animate-fade-in">
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-10">
-          <div className="w-14 h-14 rounded-2xl bg-accent/20 border border-accent/30 flex items-center justify-center mb-4 shadow-lg shadow-accent/10">
-            <span className="text-2xl font-bold text-gradient-accent">O</span>
-          </div>
-          <h1 className="text-2xl font-bold text-primary tracking-tight">Onyx</h1>
-          <p className="text-sm text-muted mt-1">Private community platform</p>
+      {/* Input + arrow row */}
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            background: 'var(--color-input)',
+            borderRadius: 999,
+            border: '1px solid rgba(255,255,255,0.07)',
+            padding: '4px 4px 4px 20px',
+            width: 280,
+            transition: 'border-color 0.15s',
+          }}
+          onFocus={() => {}}
+          className="login-row"
+        >
+          <input
+            id="username"
+            type="text"
+            value={username}
+            onChange={(e) => { setUsername(e.target.value); setError(''); }}
+            placeholder="Enter your user ID"
+            autoFocus
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            disabled={loading}
+            style={{
+              flex: 1,
+              background: 'none',
+              border: 'none',
+              outline: 'none',
+              fontSize: 14,
+              color: 'var(--color-primary)',
+              minWidth: 0,
+            }}
+          />
+
+          {/* Arrow button */}
+          <button
+            type="submit"
+            disabled={loading || !username.trim()}
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: '50%',
+              background: username.trim() && !loading ? 'var(--color-accent)' : 'rgba(255,255,255,0.06)',
+              border: 'none',
+              cursor: username.trim() && !loading ? 'pointer' : 'default',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              transition: 'background 0.15s, transform 0.1s',
+            }}
+            onMouseEnter={(e) => { if (username.trim()) (e.currentTarget as HTMLElement).style.transform = 'scale(1.08)'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
+          >
+            {loading
+              ? <Loader2 size={15} style={{ color: 'var(--color-muted)', animation: 'spin 1s linear infinite' }} />
+              : <ArrowRight size={15} style={{ color: username.trim() ? '#fff' : 'var(--color-subtle)' }} />
+            }
+          </button>
         </div>
 
-        {/* Form card */}
-        <div className="bg-elevated border border-white/5 rounded-2xl p-6 shadow-2xl">
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
-                User ID
-              </label>
-              <input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your user ID"
-                className="input-field"
-                autoFocus
-                autoComplete="off"
-                autoCapitalize="off"
-                spellCheck={false}
-              />
-            </div>
-
-            {error && (
-              <p className="text-xs text-danger bg-danger/10 px-3 py-2 rounded-lg border border-danger/20">
-                {error}
-              </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading || !username.trim()}
-              className="btn-primary w-full flex items-center justify-center gap-2 mt-1"
-            >
-              {loading ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                'Sign In'
-              )}
-            </button>
-          </form>
-        </div>
-
-        <p className="text-center text-xs text-subtle mt-6">
-          Don't have access? Contact your community admin.
-        </p>
-      </div>
+        {/* Error */}
+        {error && (
+          <p style={{ fontSize: 12, color: 'var(--color-danger)', margin: 0 }}>
+            {error}
+          </p>
+        )}
+      </form>
     </div>
   );
 }

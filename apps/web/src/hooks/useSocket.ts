@@ -111,15 +111,14 @@ export function useSocket(): Socket | null {
 
     const handleVisibilityChange = () => {
       if (document.visibilityState !== 'visible') return;
-
-      // Tab became visible — check if connection dropped while away
-      if (!socket || !socket.connected) {
-        console.log('[Socket] 👁 Tab visible — reconnecting...');
+      if (!socket) {
+        // No socket at all — create one fresh
         const token = useAuthStore.getState().accessToken;
-        if (token) {
-          socket = createSocket(token);
-          socketRef.current = socket;
-        }
+        if (token) { socket = createSocket(token); socketRef.current = socket; }
+      } else if (!socket.connected) {
+        // Socket exists but disconnected — just reconnect (preserves all listeners)
+        console.log('[Socket] 👁 Tab visible — reconnecting existing socket...');
+        socket.connect();
       }
     };
 
@@ -132,11 +131,13 @@ export function useSocket(): Socket | null {
     if (!isAuthenticated) return;
 
     const handleOnline = () => {
-      console.log('[Socket] 🌐 Network online — reconnecting...');
-      const token = useAuthStore.getState().accessToken;
-      if (token && (!socket || !socket.connected)) {
-        socket = createSocket(token);
-        socketRef.current = socket;
+      console.log('[Socket] 🌐 Network online');
+      if (!socket) {
+        const token = useAuthStore.getState().accessToken;
+        if (token) { socket = createSocket(token); socketRef.current = socket; }
+      } else if (!socket.connected) {
+        // Reuse existing socket — all listeners stay intact
+        socket.connect();
       }
     };
 

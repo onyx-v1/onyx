@@ -25,6 +25,7 @@ export function useMessages(channelId: string) {
     const socket = getSocket();
     if (!socket || !channelId) return;
 
+    // Join the channel room (also done in useSocket on reconnect, but belt-and-braces)
     socket.emit('channel:join', { channelId });
 
     const handleNewMessage = ({ message }: WsEvents.MessageNew) => {
@@ -38,13 +39,20 @@ export function useMessages(channelId: string) {
       if (cId === channelId) deleteMessage(channelId, messageId);
     };
 
+    // Re-join the room after every reconnect — server clears rooms on disconnect
+    const handleReconnect = () => {
+      socket.emit('channel:join', { channelId });
+    };
+
     socket.on('message:new', handleNewMessage);
     socket.on('message:deleted', handleDeleted);
+    socket.on('connect', handleReconnect); // fires on initial connect AND every reconnect
 
     return () => {
       socket.emit('channel:leave', { channelId });
       socket.off('message:new', handleNewMessage);
       socket.off('message:deleted', handleDeleted);
+      socket.off('connect', handleReconnect);
     };
   }, [channelId]);
 
