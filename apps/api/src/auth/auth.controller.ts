@@ -1,11 +1,15 @@
-import { Body, Controller, Get, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto, LogoutDto, RefreshDto } from './dto/auth.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { UsersService } from '../users/users.service';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private usersService: UsersService,
+  ) {}
 
   @Post('login')
   @HttpCode(200)
@@ -29,5 +33,12 @@ export class AuthController {
   @Get('me')
   me(@Req() req: any) {
     return this.authService.getMe(req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('me/avatar')
+  @HttpCode(200)
+  updateAvatar(@Req() req: any, @Body() body: { avatarUrl: string }) {
+    return this.usersService.updateAvatar(req.user.id, body.avatarUrl);
   }
 }

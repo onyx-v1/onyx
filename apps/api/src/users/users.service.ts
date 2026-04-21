@@ -1,4 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto, UpdateDisplayNameDto } from './dto/create-user.dto';
 
@@ -6,6 +8,7 @@ const USER_SELECT = {
   id: true,
   username: true,
   displayName: true,
+  avatarUrl: true,
   role: true,
   createdAt: true,
 };
@@ -16,9 +19,49 @@ function generateCode(): string {
   return Array.from({ length: 7 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 }
 
+// ── Cloudinary destroy helper ──────────────────────────────────────────────────
+//
+// Extracts the public_id from a Cloudinary URL and calls the signed destroy API.
+// Runs silently — if it fails, the upload still proceeds.
+//
+async function destroyCloudinaryAsset(url: string, config: ConfigService) {
+  try {
+    const cloudName = config.get<string>('CLOUDINARY_CLOUD_NAME');
+    const apiKey    = config.get<string>('CLOUDINARY_API_KEY');
+    const apiSecret = config.get<string>('CLOUDINARY_API_SECRET');
+
+    if (!cloudName || !apiKey || !apiSecret) return; // not configured — skip
+
+    // Example URL: https://res.cloudinary.com/{cloud}/image/upload/v1234567890/onyx/avatars/file.jpg
+    // We need public_id = "onyx/avatars/file" (no leading /upload/vXXXX/, no extension)
+    const match = url.match(/\/upload\/(?:v\d+\/)?(.+)\.[a-z]{2,5}(?:\?.*)?$/i);
+    if (!match) return;
+    const publicId = match[1];
+
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const signature = createHash('sha1')
+      .update(`public_id=${publicId}&timestamp=${timestamp}${apiSecret}`)
+      .digest('hex');
+
+    const form = new URLSearchParams({ public_id: publicId, timestamp, api_key: apiKey, signature });
+
+    await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`, {
+      method:  'POST',
+      body:    form.toString(),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
+  } catch {
+    // Non-fatal — log but don't block the update
+    console.warn('[UsersService] Failed to delete old Cloudinary asset:', url);
+  }
+}
+
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma:  PrismaService,
+    private config:  ConfigService,
+  ) {}
 
   async findAll() {
     return this.prisma.user.findMany({
@@ -56,6 +99,25 @@ export class UsersService {
     });
   }
 
+  async updateAvatar(id: string, avatarUrl: string) {
+    // Fetch current avatar URL so we can delete it from Cloudinary
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: { avatarUrl: true },
+    });
+
+    // Delete old asset (non-blocking — runs in background)
+    if (user?.avatarUrl && user.avatarUrl.includes('cloudinary.com')) {
+      destroyCloudinaryAsset(user.avatarUrl, this.config);
+    }
+
+    return this.prisma.user.update({
+      where: { id },
+      data: { avatarUrl },
+      select: USER_SELECT,
+    });
+  }
+
   async delete(id: string) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
@@ -63,8 +125,12 @@ export class UsersService {
       throw new ConflictException('Cannot delete the admin account');
     }
 
+    // Clean up Cloudinary avatar if one exists
+    if (user.avatarUrl && user.avatarUrl.includes('cloudinary.com')) {
+      await destroyCloudinaryAsset(user.avatarUrl, this.config);
+    }
+
     // 1. Null out replyToId for any message that replies to one of this user's messages
-    //    (prevents FK violation when we delete the user's messages next)
     await this.prisma.message.updateMany({
       where: { replyTo: { authorId: id } },
       data:  { replyToId: null },

@@ -18,9 +18,9 @@ interface AuthSocket extends Socket {
 }
 
 const MSG_INCLUDE = {
-  author: { select: { id: true, username: true, displayName: true } },
+  author: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
   replyTo: {
-    include: { author: { select: { id: true, username: true, displayName: true } } },
+    include: { author: { select: { id: true, username: true, displayName: true, avatarUrl: true } } },
   },
 };
 

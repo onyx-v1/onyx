@@ -8,10 +8,13 @@ import { useVoice } from '../../hooks/useVoice';
 import { ChannelSection } from '../channels/ChannelSection';
 import { Avatar } from '../ui/Avatar';
 import { ConnectionStatus } from '../ui/ConnectionStatus';
+import { AvatarUploadModal } from '../ui/AvatarUploadModal';
+import { useState } from 'react';
 
 export function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
   const { channels, activeChannelId, setActiveChannel, communityName } = useChannelStore();
   const { user, logout } = useAuthStore();
   const isUserOnline    = usePresenceStore(selectIsOnline(user?.id ?? ''));
@@ -32,6 +35,7 @@ export function Sidebar() {
   };
 
   return (
+    <>
     <aside className="app-sidebar">
       {/* Community name */}
       <div className="px-4 py-4 border-b border-white/5">
@@ -68,8 +72,17 @@ export function Sidebar() {
       <div className="p-0">
         <ConnectionStatus />
         <div className="user-profile-bar">
-          <div className="relative flex-shrink-0">
-            <Avatar displayName={user?.displayName ?? ''} size="sm" />
+          <div
+            className="relative flex-shrink-0"
+            title="Click to change avatar"
+            style={{ cursor: 'pointer' }}
+            onClick={() => setShowAvatarModal(true)}
+          >
+            <Avatar
+              displayName={user?.displayName ?? ''}
+              avatarUrl={user?.avatarUrl}
+              size="sm"
+            />
             <span
               className={`online-dot absolute -bottom-0.5 -right-0.5 ${isUserOnline ? 'is-online' : 'is-offline'}`}
             />
@@ -99,5 +112,8 @@ export function Sidebar() {
         </div>
       </div>
     </aside>
+    {/* Avatar upload modal — rendered outside aside to avoid stacking context issues */}
+    {showAvatarModal && <AvatarUploadModal onClose={() => setShowAvatarModal(false)} />}
+    </>
   );
 }

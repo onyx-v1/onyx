@@ -6,7 +6,7 @@
     "build": "nest build",
     "dev": "nest start --watch",
     "start": "node dist/main",
-    "start:prod": "node dist/main",
+    "start:prod": "prisma db push --skip-generate && node dist/main",
     "lint": "tsc --noEmit",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",

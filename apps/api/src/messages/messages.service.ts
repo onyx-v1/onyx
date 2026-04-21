@@ -2,10 +2,10 @@ import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/commo
 import { PrismaService } from '../prisma/prisma.service';
 
 const MESSAGE_INCLUDE = {
-  author: { select: { id: true, username: true, displayName: true } },
+  author: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
   replyTo: {
     include: {
-      author: { select: { id: true, username: true, displayName: true } },
+      author: { select: { id: true, username: true, displayName: true, avatarUrl: true } },
     },
   },
 };

@@ -4,6 +4,7 @@ export interface User {
   id: string;
   username: string;
   displayName: string;
+  avatarUrl?: string | null;
   role: 'ADMIN' | 'MEMBER';
   createdAt: string | Date;
 }
@@ -23,6 +24,7 @@ export interface Message {
     id: string;
     username: string;
     displayName: string;
+    avatarUrl?: string | null;
   };
   channelId: string;
   replyTo?: {
@@ -32,7 +34,9 @@ export interface Message {
       id: string;
       username: string;
       displayName: string;
+      avatarUrl?: string | null;
     };
+    deleted?: boolean;
   } | null;
   createdAt: string | Date;
   deleted: boolean;

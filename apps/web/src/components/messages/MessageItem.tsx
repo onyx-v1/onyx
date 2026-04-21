@@ -154,7 +154,7 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
         {/* Avatar / compact timestamp */}
         <div style={{ width: AVATAR_W, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           {!compact ? (
-            <Avatar displayName={message.author.displayName} size="sm" />
+            <Avatar displayName={message.author.displayName} avatarUrl={message.author.avatarUrl} size="sm" />
           ) : (
             <span
               style={{
