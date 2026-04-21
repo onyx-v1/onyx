@@ -37,7 +37,7 @@ export function AvatarUploadModal({ onClose }: Props) {
 
   // Config fetched from server at runtime (avoids Vite build-time env var issues)
   const [cloudName,    setCloudName]    = useState('');
-  const [uploadPreset, setUploadPreset] = useState('onyx_avatars');
+  const [uploadPreset, setUploadPreset] = useState('');
 
   const [imageSrc,    setImageSrc]    = useState<string | null>(null);
   const [crop,        setCrop]        = useState({ x: 0, y: 0 });

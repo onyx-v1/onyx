@@ -20,11 +20,11 @@ export class CommunityController {
   /** Public — returns runtime config the frontend needs without build-time env vars */
   @Get('config')
   getConfig() {
-    const raw  = this.config.get<string>('VITE_CLOUDINARY_URL') ?? '';
-    const m    = raw.match(/^cloudinary:\/\/(\d+):([^@]+)@(.+)$/);
+    const raw    = this.config.get<string>('VITE_CLOUDINARY_URL') ?? '';
+    const m      = raw.match(/^cloudinary:\/\/(\d+):([^@]+)@(.+)$/);
     return {
       cloudinaryCloudName:    m?.[3] ?? '',
-      cloudinaryUploadPreset: 'onyx_avatars',
+      cloudinaryUploadPreset: this.config.get<string>('CLOUDINARY_UPLOAD_PRESET') ?? '',
     };
   }
 

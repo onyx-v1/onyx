@@ -6,16 +6,17 @@ async function main() {
   console.log('🌱 Seeding Onyx database...');
 
   // ─── Admin User ───────────────────────────────────────────────────────────
+  const adminUsername = process.env.ADMIN_USERNAME || 'knull_onyx';
   const admin = await prisma.user.upsert({
-    where: { username: 'knull_onyx' },
+    where: { username: adminUsername },
     update: {},
     create: {
-      username: 'knull_onyx',
-      displayName: 'Admin',
+      username: adminUsername,
+      displayName: process.env.ADMIN_DISPLAY_NAME || 'Admin',
       role: Role.ADMIN,
     },
   });
-  console.log(`✅ Admin user: @${admin.username}`);
+  console.log(`✅ Admin user created`);
 
   // ─── Community ────────────────────────────────────────────────────────────
   const community = await prisma.community.upsert({
@@ -56,7 +57,7 @@ async function main() {
     console.log(`✅ Channel: ${icon} ${ch.name}`);
   }
 
-  console.log('\n🚀 Onyx is ready! Log in as @knull_onyx to start.');
+  console.log('\n🚀 Onyx is ready!');
 }
 
 main()
