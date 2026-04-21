@@ -1,16 +1,13 @@
 import { useState, memo } from 'react';
-import { Reply, Copy, Trash2 } from 'lucide-react';
+import { Reply, Copy, Trash2, Check } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { Message } from '@onyx/types';
 import { useAuthStore } from '../../stores/authStore';
 import { getSocket } from '../../hooks/useSocket';
 import { Avatar } from '../ui/Avatar';
 
-// ── Layout constants — must match .message-group CSS ─────────────────────────
-const AVATAR_W = 32; // w-8
-const COL_GAP  = 14; // gap in message row
-// Connector bridges from avatar centre (AVATAR_W/2 = 16) to content start (AVATAR_W + COL_GAP = 46)
-// So connector width = (AVATAR_W/2 + COL_GAP) = 30px
+const AVATAR_W    = 32;
+const COL_GAP     = 14;
 const CONNECTOR_W = AVATAR_W / 2 + COL_GAP; // 30px
 
 interface Props {
@@ -27,25 +24,35 @@ function formatTime(date: Date): string {
 
 export const MessageItem = memo(function MessageItem({ message, compact, onReply }: Props) {
   const { user } = useAuthStore();
-  const [copied, setCopied] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [copied,  setCopied]  = useState(false);
 
   const isOwn    = user?.id === message.author.id;
   const isAdmin  = user?.role === 'ADMIN';
   const canDelete = isOwn || isAdmin;
   const date     = new Date(message.createdAt);
 
-  const handleDelete = () => getSocket()?.emit('message:delete', { messageId: message.id });
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(message.content);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+  const handleDelete = () => {
+    if (!window.confirm('Delete this message?')) return;
+    getSocket()?.emit('message:delete', { messageId: message.id });
   };
 
+  const handleCopy = () => {
+    navigator.clipboard.writeText(message.content).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+
+  const handleReply = () => {
+    onReply();
+  };
+
+  /* ── Deleted state ───────────────────────────────────────────────── */
   if (message.deleted) {
     return (
-      <div className={`message-group ${compact ? 'pt-0' : 'pt-2'}`}>
-        {!compact && <div className="w-8 flex-shrink-0" />}
+      <div style={{ padding: compact ? '1px 20px' : '6px 20px 2px', display: 'flex', gap: COL_GAP }}>
+        {!compact && <div style={{ width: AVATAR_W, flexShrink: 0 }} />}
         <span style={{ fontSize: 13, color: 'var(--color-subtle)', fontStyle: 'italic' }}>
           Message deleted
         </span>
@@ -55,57 +62,40 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
 
   return (
     <div
-      className="group relative"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
+        position: 'relative',
         padding: compact ? '1px 20px' : '6px 20px 2px',
         borderRadius: 6,
+        background: hovered ? 'rgba(255,255,255,0.025)' : 'transparent',
         transition: 'background 0.08s',
       }}
     >
 
-      {/* ━━━ Discord-style reply row ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          Rendered as a SEPARATE ROW above the avatar+content row.
-          This prevents any overlap with the main message avatar.
-          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+      {/* ── Reply connector row ─────────────────────────────────────── */}
       {message.replyTo && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            marginBottom: 2,
-            overflow: 'hidden',
-          }}
-        >
-          {/* Left spacer: positions connector at avatar centre */}
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 2, overflow: 'hidden' }}>
           <div style={{ width: AVATAR_W / 2, flexShrink: 0 }} />
-
-          {/* Curved connector: from avatar centre → content column start */}
           <div
             style={{
-              width: CONNECTOR_W,       // 30px — bridges exactly to content start
+              width: CONNECTOR_W,
               height: 14,
               flexShrink: 0,
-              alignSelf: 'flex-end',    // anchor bottom so arc "hangs down" toward avatar
-              borderTop: '2px solid rgba(255,255,255,0.20)',
-              borderLeft: '2px solid rgba(255,255,255,0.20)',
+              alignSelf: 'flex-end',
+              borderTop: '2px solid rgba(255,255,255,0.18)',
+              borderLeft: '2px solid rgba(255,255,255,0.18)',
               borderTopLeftRadius: 8,
               marginBottom: 1,
               marginRight: 6,
             }}
           />
-
-          {/* Mini avatar of replied-to author */}
           <Avatar displayName={message.replyTo.author.displayName} size="xs" />
-
-          {/* @name + preview text */}
           <span
             style={{
-              marginLeft: 6,
-              fontSize: 13,
+              marginLeft: 6, fontSize: 13,
               color: 'var(--color-muted)',
-              overflow: 'hidden',
-              whiteSpace: 'nowrap',
-              textOverflow: 'ellipsis',
+              overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
               cursor: 'pointer',
             }}
           >
@@ -113,33 +103,26 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
               @{message.replyTo.author.displayName}
             </span>
             <span style={{ opacity: 0.65 }}>
-              {message.replyTo.deleted
-                ? 'Original message was deleted'
-                : message.replyTo.content}
+              {message.replyTo.deleted ? 'Original message was deleted' : message.replyTo.content}
             </span>
           </span>
         </div>
       )}
 
-      {/* ━━━ Main message row (avatar + content) ━━━━━━━━━━━━━━━━━━ */}
+      {/* ── Main row ────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', gap: COL_GAP }}>
 
         {/* Avatar / compact timestamp */}
-        <div
-          style={{
-            width: AVATAR_W,
-            flexShrink: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-          }}
-        >
+        <div style={{ width: AVATAR_W, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           {!compact ? (
             <Avatar displayName={message.author.displayName} size="sm" />
           ) : (
             <span
-              className="opacity-0 group-hover:opacity-100 transition-opacity select-none"
-              style={{ fontSize: 10, color: 'var(--color-subtle)', paddingTop: 3 }}
+              style={{
+                fontSize: 10, color: 'var(--color-subtle)',
+                paddingTop: 3, userSelect: 'none',
+                opacity: hovered ? 1 : 0, transition: 'opacity 0.1s',
+              }}
             >
               {format(date, 'HH:mm')}
             </span>
@@ -148,18 +131,13 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
 
         {/* Content */}
         <div style={{ flex: 1, minWidth: 0 }}>
-
-          {/* Author name + timestamp */}
           {!compact && (
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 2 }}>
               <span
                 style={{
-                  fontSize: 15,
-                  fontWeight: 600,
+                  fontSize: 15, fontWeight: 600, cursor: 'pointer',
                   color: isOwn ? 'var(--color-accent-hover)' : 'var(--color-primary)',
-                  cursor: 'pointer',
                 }}
-                className="hover:underline"
               >
                 {message.author.displayName}
               </span>
@@ -168,43 +146,83 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
               </span>
             </div>
           )}
-
-          {/* Message body */}
           <p style={{ fontSize: 15, color: 'var(--color-primary)', lineHeight: 1.6, wordBreak: 'break-word', margin: 0 }}>
             {message.content}
           </p>
         </div>
       </div>
 
-      {/* ━━━ Hover action toolbar ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <div
-        className="message-actions absolute right-4 top-1/2 -translate-y-1/2"
-        style={{
-          background: 'var(--color-elevated)',
-          border: '1px solid rgba(255,255,255,0.07)',
-          borderRadius: 8,
-          padding: '2px 4px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 2,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
-        }}
-      >
-        <button onClick={onReply} className="btn-ghost" style={{ padding: 6 }} title="Reply">
-          <Reply size={14} style={{ color: 'var(--color-muted)' }} />
-        </button>
-        <button onClick={handleCopy} className="btn-ghost" style={{ padding: 6 }} title={copied ? 'Copied!' : 'Copy'}>
-          <Copy size={14} style={{ color: copied ? 'var(--color-online)' : 'var(--color-muted)' }} />
-        </button>
-        {canDelete && (
-          <button onClick={handleDelete} className="btn-ghost" style={{ padding: 6 }} title="Delete">
-            <Trash2 size={14} style={{ color: 'var(--color-muted)' }} />
-          </button>
-        )}
-      </div>
+      {/* ── Action toolbar — visible on hover ───────────────────────── */}
+      {hovered && (
+        <div
+          style={{
+            position: 'absolute',
+            right: 16,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            background: 'var(--color-elevated)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: 8,
+            padding: '2px 4px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.35)',
+            zIndex: 10,
+          }}
+        >
+          {/* Reply */}
+          <ActionBtn title="Reply" onClick={handleReply}>
+            <Reply size={14} />
+          </ActionBtn>
 
-      {/* Hover background */}
-      <style>{`.group:hover { background: rgba(255,255,255,0.02); }`}</style>
+          {/* Copy */}
+          <ActionBtn title={copied ? 'Copied!' : 'Copy'} onClick={handleCopy}>
+            {copied
+              ? <Check size={14} style={{ color: 'var(--color-online)' }} />
+              : <Copy size={14} />}
+          </ActionBtn>
+
+          {/* Delete (own or admin) */}
+          {canDelete && (
+            <ActionBtn title="Delete" onClick={handleDelete} danger>
+              <Trash2 size={14} />
+            </ActionBtn>
+          )}
+        </div>
+      )}
     </div>
   );
 });
+
+/* ── Tiny reusable action button ─────────────────────────────────────── */
+function ActionBtn({
+  title, onClick, children, danger,
+}: {
+  title: string;
+  onClick: () => void;
+  children: React.ReactNode;
+  danger?: boolean;
+}) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      title={title}
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        width: 30, height: 30,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        borderRadius: 6, border: 'none', cursor: 'pointer',
+        background: hov
+          ? (danger ? 'rgba(240,64,64,0.15)' : 'rgba(255,255,255,0.08)')
+          : 'transparent',
+        color: hov && danger ? 'var(--color-danger)' : 'var(--color-muted)',
+        transition: 'background 0.1s, color 0.1s',
+      }}
+    >
+      {children}
+    </button>
+  );
+}

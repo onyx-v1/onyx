@@ -11,6 +11,41 @@ export function getSocket(): Socket | null {
   return socket;
 }
 
+// ── Proactive token refresh — runs 60s before JWT expires ────────────────────
+let proactiveTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleProactiveRefresh() {
+  if (proactiveTimer) { clearTimeout(proactiveTimer); proactiveTimer = null; }
+
+  try {
+    const raw   = localStorage.getItem('onyx-auth');
+    const token = raw ? JSON.parse(raw)?.state?.accessToken : null;
+    if (!token) return;
+
+    // Decode exp from JWT payload (no validation needed — just timing)
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const expiresIn = payload.exp * 1000 - Date.now(); // ms until expiry
+    const refreshIn = expiresIn - 60_000;              // 60s before expiry
+
+    if (refreshIn <= 0) {
+      // Already expired or about to — refresh immediately
+      tryRefreshToken().then((newToken) => {
+        if (newToken) scheduleProactiveRefresh();
+        else forceLogout();
+      });
+      return;
+    }
+
+    proactiveTimer = setTimeout(async () => {
+      const newToken = await tryRefreshToken();
+      if (newToken) scheduleProactiveRefresh(); // schedule next cycle
+      else forceLogout();
+    }, refreshIn);
+  } catch {
+    // Malformed token — ignore, let the 401 interceptor handle it
+  }
+}
+
 // ── Attempt to refresh the expired JWT using stored refresh token ─────────────
 async function tryRefreshToken(): Promise<string | null> {
   try {
@@ -27,12 +62,13 @@ async function tryRefreshToken(): Promise<string | null> {
     });
     if (!res.ok) return null;
 
-    const { accessToken } = await res.json();
-    // Patch localStorage + Zustand store
-    stored.state.accessToken = accessToken;
+    const data = await res.json();
+    // Persist new tokens (refresh token is rotated on each call)
+    stored.state.accessToken = data.accessToken;
+    if (data.refreshToken) stored.state.refreshToken = data.refreshToken;
     localStorage.setItem('onyx-auth', JSON.stringify(stored));
-    useAuthStore.setState({ accessToken });
-    return accessToken;
+    useAuthStore.setState({ accessToken: data.accessToken });
+    return data.accessToken;
   } catch {
     return null;
   }
@@ -128,8 +164,12 @@ export function useSocket(): void {
         socket.disconnect();
         socket = null;
       }
+      if (proactiveTimer) { clearTimeout(proactiveTimer); proactiveTimer = null; }
       return;
     }
+
+    // Start proactive refresh cycle — silences 401 flash on page reload
+    scheduleProactiveRefresh();
 
     if (socket?.connected && !initialised.current) {
       initialised.current = true;
