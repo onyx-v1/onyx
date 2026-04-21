@@ -331,3 +331,13 @@
   0%, 100% { opacity: 1; }
   50%      { opacity: 0.3; }
 }
+/* Search result highlight — amber flash that fades out */
+@keyframes msg-flash-kf {
+  0%   { background: rgba(245, 158, 11, 0.28); border-left-color: rgba(245, 158, 11, 0.8); }
+  60%  { background: rgba(245, 158, 11, 0.10); border-left-color: rgba(245, 158, 11, 0.4); }
+  100% { background: transparent;              border-left-color: transparent; }
+}
+.msg-flash {
+  border-left: 2px solid transparent;
+  animation: msg-flash-kf 2.5s ease-out forwards !important;
+}

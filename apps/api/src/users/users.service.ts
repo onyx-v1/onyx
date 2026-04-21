@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateUserDto } from './dto/create-user.dto';
+import { CreateUserDto, UpdateDisplayNameDto } from './dto/create-user.dto';
 
 const USER_SELECT = {
   id: true,
@@ -9,6 +9,12 @@ const USER_SELECT = {
   role: true,
   createdAt: true,
 };
+
+// Generates a 7-char alphanumeric code, e.g. onyx_a3b2c1d
+function generateCode(): string {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  return Array.from({ length: 7 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
 
 @Injectable()
 export class UsersService {
@@ -22,16 +28,30 @@ export class UsersService {
   }
 
   async create(dto: CreateUserDto) {
-    const existing = await this.prisma.user.findUnique({
-      where: { username: dto.username.toLowerCase() },
-    });
-    if (existing) throw new ConflictException(`Username @${dto.username} is already taken`);
+    // Auto-generate unique username
+    let username: string;
+    let attempts = 0;
+    do {
+      username = `onyx_${generateCode()}`;
+      attempts++;
+      if (attempts > 10) throw new ConflictException('Could not generate unique ID, try again');
+    } while (await this.prisma.user.findUnique({ where: { username } }));
 
     return this.prisma.user.create({
       data: {
-        username: dto.username.toLowerCase(),
+        username,
         displayName: dto.displayName.trim(),
       },
+      select: USER_SELECT,
+    });
+  }
+
+  async updateDisplayName(id: string, dto: UpdateDisplayNameDto) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+    return this.prisma.user.update({
+      where: { id },
+      data: { displayName: dto.displayName.trim() },
       select: USER_SELECT,
     });
   }
@@ -39,11 +59,10 @@ export class UsersService {
   async delete(id: string) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
-    if (user.username === 'knull_onyx') {
+    if (user.role === 'ADMIN') {
       throw new ConflictException('Cannot delete the admin account');
     }
 
-    // Cascade: sessions, messages soft-deleted
     await this.prisma.session.deleteMany({ where: { userId: id } });
     await this.prisma.message.updateMany({
       where: { authorId: id },

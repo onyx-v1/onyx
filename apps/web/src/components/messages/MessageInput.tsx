@@ -83,10 +83,13 @@ export function MessageInput({ channelId, replyTo, onCancelReply }: Props) {
     const ta = textareaRef.current;
     if (!ta) return;
 
+    // Use displayName as the mention handle (backend resolves by displayName)
+    const handle = member.id === '__everyone__' ? 'everyone' : member.displayName;
+
     const cursor   = ta.selectionStart ?? ta.value.length;
     const before   = ta.value.slice(0, cursor);
     const after    = ta.value.slice(cursor);
-    const replaced = before.replace(/@(\w*)$/, `@${member.username} `);
+    const replaced = before.replace(/@(\w*)$/, `@${handle} `);
 
     ta.value = replaced + after;
     const newPos = replaced.length;

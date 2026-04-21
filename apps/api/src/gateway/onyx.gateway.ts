@@ -230,9 +230,9 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
         return; // @everyone supersedes individual mentions
       }
 
-      // Individual mention — look up by username
-      const target = await this.prisma.user.findUnique({
-        where: { username: name },
+      // Individual mention — look up by displayName (case-insensitive)
+      const target = await this.prisma.user.findFirst({
+        where: { displayName: { equals: name, mode: 'insensitive' } },
         select: { id: true },
       });
       if (!target || target.id === sender.id) continue; // skip self-mention

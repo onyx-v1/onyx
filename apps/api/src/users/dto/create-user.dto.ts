@@ -1,16 +1,15 @@
-import { IsString, MinLength, MaxLength, Matches } from 'class-validator';
+import { IsString, MinLength, MaxLength } from 'class-validator';
 
 export class CreateUserDto {
   @IsString()
-  @MinLength(2)
+  @MinLength(1)
   @MaxLength(32)
-  @Matches(/^[a-z0-9_]+$/, {
-    message: 'Username may only contain lowercase letters, numbers, and underscores',
-  })
-  username: string;
+  displayName: string;
+}
 
+export class UpdateDisplayNameDto {
   @IsString()
   @MinLength(1)
-  @MaxLength(50)
+  @MaxLength(32)
   displayName: string;
 }

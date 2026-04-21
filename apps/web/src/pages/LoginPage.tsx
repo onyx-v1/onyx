@@ -72,7 +72,7 @@ export function LoginPage() {
             type="text"
             value={username}
             onChange={(e) => { setUsername(e.target.value); setError(''); }}
-            placeholder="Enter your user ID"
+            placeholder="Enter your login ID"
             autoFocus
             autoComplete="off"
             autoCapitalize="off"

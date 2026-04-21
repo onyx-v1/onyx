@@ -99,7 +99,7 @@ export function SearchPanel() {
   }, []);
 
   const goToResult = (r: SearchResult) => {
-    navigate(`/channel/${r.channelId}`);
+    navigate(`/channel/${r.channelId}?highlight=${r.id}`);
     setOpen(false);
     setQuery('');
     setResults([]);

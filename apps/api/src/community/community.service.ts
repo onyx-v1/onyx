@@ -15,6 +15,16 @@ export class CommunityService {
     });
   }
 
+  async updateName(name: string) {
+    const community = await this.prisma.community.findFirst();
+    if (!community) return;
+    return this.prisma.community.update({
+      where: { id: community.id },
+      data: { name: name.trim() },
+      select: { id: true, name: true },
+    });
+  }
+
   async getMembers() {
     return this.prisma.user.findMany({
       select: { id: true, username: true, displayName: true },

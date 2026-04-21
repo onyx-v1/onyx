@@ -14,6 +14,7 @@ interface Props {
   message: Message;
   compact: boolean;
   onReply: () => void;
+  isHighlighted?: boolean;
 }
 
 function formatTime(date: Date): string {
@@ -23,12 +24,12 @@ function formatTime(date: Date): string {
 }
 
 /** Split content on @mentions and render them as highlighted chips. */
-function renderContent(content: string, currentUsername?: string) {
+function renderContent(content: string, currentDisplayName?: string) {
   const parts = content.split(/(@\w+)/g);
   return parts.map((part, i) => {
     if (!/@\w+/.test(part)) return <span key={i}>{part}</span>;
     const lower = part.toLowerCase();
-    const isMe       = !!currentUsername && lower === `@${currentUsername.toLowerCase()}`;
+    const isMe       = !!currentDisplayName && lower === `@${currentDisplayName.toLowerCase()}`;
     const isEveryone = lower === '@everyone';
     const highlight  = isMe || isEveryone;
     return (
@@ -49,7 +50,7 @@ function renderContent(content: string, currentUsername?: string) {
   });
 }
 
-export const MessageItem = memo(function MessageItem({ message, compact, onReply }: Props) {
+export const MessageItem = memo(function MessageItem({ message, compact, onReply, isHighlighted }: Props) {
   const { user } = useAuthStore();
   const [hovered, setHovered] = useState(false);
   const [copied,  setCopied]  = useState(false);
@@ -60,9 +61,9 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
   const date      = new Date(message.createdAt);
 
   // Does this message mention me or @everyone?
-  const mentionsMe = !!user?.username && (
+  const mentionsMe = !!user?.displayName && (
     message.content.toLowerCase().includes('@everyone') ||
-    message.content.toLowerCase().includes(`@${user.username.toLowerCase()}`)
+    message.content.toLowerCase().includes(`@${user.displayName.toLowerCase()}`)
   );
 
   const handleDelete = () => {
@@ -95,8 +96,10 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
 
   return (
     <div
+      id={`msg-${message.id}`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      className={isHighlighted ? 'msg-flash' : undefined}
       style={{
         position: 'relative',
         padding: compact ? '1px 20px' : '6px 20px 2px',
@@ -183,7 +186,7 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
             </div>
           )}
           <p style={{ fontSize: 15, color: 'var(--color-primary)', lineHeight: 1.6, wordBreak: 'break-word', margin: 0 }}>
-            {renderContent(message.content, user?.username)}
+            {renderContent(message.content, user?.displayName)}
           </p>
         </div>
       </div>
