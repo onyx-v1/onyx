@@ -7,6 +7,7 @@ import { useVoiceStore } from '../../stores/voiceStore';
 import { useVoice } from '../../hooks/useVoice';
 import { ChannelSection } from '../channels/ChannelSection';
 import { Avatar } from '../ui/Avatar';
+import { ConnectionStatus } from '../ui/ConnectionStatus';
 
 export function Sidebar() {
   const navigate = useNavigate();
@@ -63,8 +64,9 @@ export function Sidebar() {
         </div>
       )}
 
-      {/* User profile bar */}
-      <div className="p-2">
+      {/* Connection status + User profile bar */}
+      <div className="p-0">
+        <ConnectionStatus />
         <div className="user-profile-bar">
           <div className="relative flex-shrink-0">
             <Avatar displayName={user?.displayName ?? ''} size="sm" />

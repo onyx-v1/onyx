@@ -1,19 +1,25 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { RedisIoAdapter } from './adapters/redis-io.adapter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { logger: ['log', 'warn', 'error'] });
 
-  // CORS
+  // ── Redis-backed Socket.IO adapter ──────────────────────────────────────────
+  const redisAdapter = new RedisIoAdapter(app);
+  await redisAdapter.connectToRedis();
+  app.useWebSocketAdapter(redisAdapter);
+
+  // ── CORS ────────────────────────────────────────────────────────────────────
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: '*',
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-  // Global validation
+  // ── Global validation ───────────────────────────────────────────────────────
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -22,7 +28,7 @@ async function bootstrap() {
     }),
   );
 
-  // Global prefix for all HTTP routes
+  // ── Global HTTP prefix ──────────────────────────────────────────────────────
   app.setGlobalPrefix('api');
 
   const port = process.env.PORT || 3000;
