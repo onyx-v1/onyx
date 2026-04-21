@@ -12,7 +12,7 @@ async function main() {
     update: {},
     create: {
       username: adminUsername,
-      displayName: process.env.ADMIN_DISPLAY_NAME || 'Admin',
+      displayName: 'Admin',
       role: Role.ADMIN,
     },
   });
