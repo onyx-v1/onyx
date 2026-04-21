@@ -4,7 +4,9 @@ import { useChannelStore } from '../stores/channelStore';
 import { useMessages } from '../hooks/useMessages';
 import { MessageList } from '../components/messages/MessageList';
 import { MessageInput } from '../components/messages/MessageInput';
+import { MessageSelectionBar } from '../components/messages/MessageSelectionBar';
 import { TypingIndicator } from '../components/messages/TypingIndicator';
+import { useSelectionStore } from '../stores/selectionStore';
 import { Message } from '@onyx/types';
 import { Hash } from 'lucide-react';
 
@@ -26,10 +28,14 @@ export function ChannelPage() {
 // Separated so hooks only run when channelId is guaranteed truthy
 function ChannelView({ channelId }: { channelId: string }) {
   const { channels } = useChannelStore();
+  const { clearSelection } = useSelectionStore();
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const { messages, hasMore, isLoading, loadMore, error } = useMessages(channelId);
 
   const channel = channels.find((c) => c.id === channelId);
+
+  // Clear any active selection when switching channels
+  useEffect(() => { clearSelection(); }, [channelId]);
 
   const handleReply = (msg: Message) => setReplyTo(msg);
   const cancelReply = () => setReplyTo(null);
@@ -71,13 +77,16 @@ function ChannelView({ channelId }: { channelId: string }) {
         )}
       </div>
 
-      {/* Typing + input — always anchored to bottom */}
+      {/* Typing + input + selection bar */}
       <TypingIndicator channelId={channelId} />
-      <MessageInput
-        channelId={channelId}
-        replyTo={replyTo}
-        onCancelReply={cancelReply}
-      />
+      <div style={{ position: 'relative' }}>
+        <MessageSelectionBar channelId={channelId} />
+        <MessageInput
+          channelId={channelId}
+          replyTo={replyTo}
+          onCancelReply={cancelReply}
+        />
+      </div>
     </div>
   );
 }

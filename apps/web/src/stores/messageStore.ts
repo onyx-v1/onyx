@@ -2,21 +2,45 @@ import { create } from 'zustand';
 import { Message } from '@onyx/types';
 import { apiClient } from '../api/client';
 
-interface MessageState {
-  messages: Map<string, Message[]>;
-  hasMore: Map<string, boolean>;
-  loading: Map<string, boolean>;
+// ── Pin system rows ──────────────────────────────────────────────────────────
+// These are ephemeral in-memory entries shown in the message list
+// (session-only — not persisted to DB).
+export interface PinEvent {
+  _pinEvent: true;
+  id: string;          // unique per event
+  channelId: string;
+  messageId: string;
+  pinnedByName: string;
+  createdAt: Date;
+}
 
-  fetchHistory: (channelId: string, before?: string) => Promise<void>;
-  addMessage: (channelId: string, message: Message) => void;
-  deleteMessage: (channelId: string, messageId: string) => void;
-  clearChannel: (channelId: string) => void;
+export type MessageOrPin = Message | PinEvent;
+export function isPinEvent(m: MessageOrPin): m is PinEvent {
+  return (m as PinEvent)._pinEvent === true;
+}
+
+interface MessageState {
+  messages:    Map<string, Message[]>;
+  pinEvents:   Map<string, PinEvent[]>;
+  hasMore:     Map<string, boolean>;
+  loading:     Map<string, boolean>;
+
+  fetchHistory:    (channelId: string, before?: string) => Promise<void>;
+  addMessage:      (channelId: string, message: Message) => void;
+  updateMessage:   (channelId: string, messageId: string, patch: Partial<Message>) => void;
+  deleteMessage:   (channelId: string, messageId: string) => void;
+  addPinEvent:     (channelId: string, event: PinEvent) => void;
+  clearChannel:    (channelId: string) => void;
+
+  /** Merge messages + pinEvents for a channel, sorted by createdAt */
+  getMerged:       (channelId: string) => MessageOrPin[];
 }
 
 export const useMessageStore = create<MessageState>((set, get) => ({
-  messages: new Map(),
-  hasMore: new Map(),
-  loading: new Map(),
+  messages:  new Map(),
+  pinEvents: new Map(),
+  hasMore:   new Map(),
+  loading:   new Map(),
 
   fetchHistory: async (channelId: string, before?: string) => {
     const { loading } = get();
@@ -42,8 +66,6 @@ export const useMessageStore = create<MessageState>((set, get) => ({
         nextMessages.set(channelId, merged);
 
         const nextHasMore = new Map(s.hasMore);
-        // Use >= 50: if exactly 50 returned, assume there may be more.
-        // If a subsequent fetch returns 0, hasMore flips to false cleanly.
         nextHasMore.set(channelId, incoming.length >= 50);
 
         return { messages: nextMessages, hasMore: nextHasMore };
@@ -60,14 +82,19 @@ export const useMessageStore = create<MessageState>((set, get) => ({
   addMessage: (channelId, message) =>
     set((s) => {
       const existing = s.messages.get(channelId) ?? [];
-      // Deduplicate
       if (existing.some((m) => m.id === message.id)) return s;
-      // Cap at 200 messages — trim oldest 50 when we exceed 250
-      // Keeps DOM small and memory bounded with 50+ active users
       const appended = [...existing, message];
       const capped = appended.length > 250 ? appended.slice(appended.length - 200) : appended;
       const nextMessages = new Map(s.messages);
       nextMessages.set(channelId, capped);
+      return { messages: nextMessages };
+    }),
+
+  updateMessage: (channelId, messageId, patch) =>
+    set((s) => {
+      const existing = s.messages.get(channelId) ?? [];
+      const nextMessages = new Map(s.messages);
+      nextMessages.set(channelId, existing.map((m) => m.id === messageId ? { ...m, ...patch } : m));
       return { messages: nextMessages };
     }),
 
@@ -82,10 +109,29 @@ export const useMessageStore = create<MessageState>((set, get) => ({
       return { messages: nextMessages };
     }),
 
+  addPinEvent: (channelId, event) =>
+    set((s) => {
+      const existing = s.pinEvents.get(channelId) ?? [];
+      const next = new Map(s.pinEvents);
+      next.set(channelId, [...existing, event]);
+      return { pinEvents: next };
+    }),
+
   clearChannel: (channelId) =>
     set((s) => {
-      const next = new Map(s.messages);
-      next.delete(channelId);
-      return { messages: next };
+      const nextMsg = new Map(s.messages);
+      const nextPin = new Map(s.pinEvents);
+      nextMsg.delete(channelId);
+      nextPin.delete(channelId);
+      return { messages: nextMsg, pinEvents: nextPin };
     }),
+
+  getMerged: (channelId) => {
+    const { messages, pinEvents } = get();
+    const msgs: MessageOrPin[] = messages.get(channelId) ?? [];
+    const pins: MessageOrPin[] = pinEvents.get(channelId) ?? [];
+    return [...msgs, ...pins].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
+  },
 }));

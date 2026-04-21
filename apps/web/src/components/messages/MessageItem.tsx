@@ -1,8 +1,9 @@
 import { useState, memo } from 'react';
-import { Reply, Copy, Trash2, Check } from 'lucide-react';
+import { Reply, Copy, Trash2, Check, Pin } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { Message } from '@onyx/types';
 import { useAuthStore } from '../../stores/authStore';
+import { useSelectionStore } from '../../stores/selectionStore';
 import { getSocket } from '../../hooks/useSocket';
 import { Avatar } from '../ui/Avatar';
 
@@ -52,8 +53,11 @@ function renderContent(content: string, currentDisplayName?: string) {
 
 export const MessageItem = memo(function MessageItem({ message, compact, onReply, isHighlighted }: Props) {
   const { user } = useAuthStore();
+  const { active: selectionActive, selectedIds, enterSelection, toggleMessage } = useSelectionStore();
   const [hovered, setHovered] = useState(false);
   const [copied,  setCopied]  = useState(false);
+
+  const isSelected = selectedIds.has(message.id);
 
   const isOwn     = user?.id === message.author.id;
   const isAdmin   = user?.role === 'ADMIN';
@@ -69,6 +73,10 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
   const handleDelete = () => {
     if (!window.confirm('Delete this message?')) return;
     getSocket()?.emit('message:delete', { messageId: message.id });
+  };
+
+  const handlePin = () => {
+    getSocket()?.emit('message:pin', { messageId: message.id });
   };
 
   const handleCopy = () => {
@@ -99,16 +107,42 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
       id={`msg-${message.id}`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onClick={() => { if (selectionActive) toggleMessage(message.id); }}
       className={isHighlighted ? 'msg-flash' : undefined}
       style={{
         position: 'relative',
         padding: compact ? '1px 20px' : '6px 20px 2px',
+        paddingLeft: selectionActive ? 8 : 20,
         borderRadius: 6,
-        background: hovered ? 'rgba(255,255,255,0.025)' : 'transparent',
-        borderLeft: '2px solid transparent',
+        background: isSelected
+          ? 'rgba(139,124,248,0.10)'
+          : hovered ? 'rgba(255,255,255,0.025)' : 'transparent',
+        borderLeft: isSelected ? '2px solid rgba(139,124,248,0.5)' : '2px solid transparent',
         transition: 'background 0.08s',
+        cursor: selectionActive ? 'pointer' : 'default',
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: selectionActive ? 8 : 0,
       }}
     >
+      {/* ── Checkbox strip — visible in selection mode ─────────────── */}
+      {selectionActive && (
+        <div
+          onClick={(e) => { e.stopPropagation(); toggleMessage(message.id); }}
+          style={{
+            width: 20, height: 20, borderRadius: 6, flexShrink: 0, marginTop: compact ? 2 : 8,
+            border: `2px solid ${isSelected ? 'var(--color-accent)' : 'rgba(255,255,255,0.25)'}`,
+            background: isSelected ? 'var(--color-accent)' : 'transparent',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', transition: 'all 0.12s',
+          }}
+        >
+          {isSelected && <Check size={12} style={{ color: '#fff' }} />}
+        </div>
+      )}
+
+      {/* ── Rest of message ────────────────────────────────────────── */}
+      <div style={{ flex: 1, minWidth: 0 }}>
 
       {/* ── Reply connector row ─────────────────────────────────────── */}
       {message.replyTo && (
@@ -193,8 +227,19 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
         </div>
       </div>
 
-      {/* ── Action toolbar — visible on hover ───────────────────────── */}
-      {hovered && (
+      {/* ── Pinned chip ──────────────────────────────────────────────── */}
+      {message.pinned && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 4,
+          marginLeft: AVATAR_W + COL_GAP, marginBottom: 2,
+        }}>
+          <Pin size={10} style={{ color: 'var(--color-accent)', transform: 'rotate(45deg)', flexShrink: 0 }} />
+          <span style={{ fontSize: 10, color: 'var(--color-accent)', fontWeight: 600, letterSpacing: '0.04em' }}>Pinned</span>
+        </div>
+      )}
+
+      {/* ── Action toolbar — visible on hover, hidden in selection mode ── */}
+      {hovered && !selectionActive && (
         <div
           style={{
             position: 'absolute',
@@ -212,6 +257,11 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
             zIndex: 10,
           }}
         >
+          {/* Select */}
+          <ActionBtn title="Select" onClick={() => enterSelection(message.id)}>
+            <Check size={14} />
+          </ActionBtn>
+
           {/* Reply */}
           <ActionBtn title="Reply" onClick={handleReply}>
             <Reply size={14} />
@@ -224,6 +274,16 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
               : <Copy size={14} />}
           </ActionBtn>
 
+          {/* Pin / Unpin — admin only */}
+          {isAdmin && (
+            <ActionBtn title={message.pinned ? 'Unpin' : 'Pin'} onClick={handlePin}>
+              <Pin size={14} style={{
+                transform: 'rotate(45deg)',
+                color: message.pinned ? 'var(--color-accent)' : undefined,
+              }} />
+            </ActionBtn>
+          )}
+
           {/* Delete (own or admin) */}
           {canDelete && (
             <ActionBtn title="Delete" onClick={handleDelete} danger>
@@ -232,6 +292,7 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
           )}
         </div>
       )}
+      </div>{/* closes flex:1 inner wrapper */}
     </div>
   );
 });

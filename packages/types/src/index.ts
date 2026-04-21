@@ -40,6 +40,7 @@ export interface Message {
   } | null;
   createdAt: string | Date;
   deleted: boolean;
+  pinned?: boolean;
 }
 
 export interface Community {
@@ -85,6 +86,13 @@ export namespace WsEvents {
   // Server → Client
   export interface MessageNew { message: Message; }
   export interface MessageDeleted { messageId: string; channelId: string; }
+  export interface MessageUpdated { message: Message; }
+  export interface MessagePinned {
+    messageId: string;
+    channelId: string;
+    pinnedBy: { id: string; displayName: string };
+    pinned: boolean;  // true = pinned, false = unpinned
+  }
   export interface TypingUpdate {
     channelId: string;
     users: Array<{ id: string; displayName: string; }>;

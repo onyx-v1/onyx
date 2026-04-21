@@ -67,6 +67,7 @@ model Message {
   content   String
   createdAt DateTime  @default(now())
   deleted   Boolean   @default(false)
+  pinned    Boolean   @default(false)
 
   authorId  String
   author    User    @relation(fields: [authorId], references: [id])

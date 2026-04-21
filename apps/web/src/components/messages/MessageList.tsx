@@ -1,28 +1,58 @@
 import { useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Pin } from 'lucide-react';
 import { Message } from '@onyx/types';
+import { MessageOrPin, isPinEvent, PinEvent } from '../../stores/messageStore';
 import { MessageItem } from './MessageItem';
 
 interface Props {
-  messages:  Message[];
-  hasMore:   boolean;
-  isLoading: boolean;
+  messages:   MessageOrPin[];
+  hasMore:    boolean;
+  isLoading:  boolean;
   onLoadMore: () => void;
   onReply:    (message: Message) => void;
 }
 
-// Group consecutive messages from the same author within 5 minutes
-function groupMessages(messages: Message[]) {
-  return messages.map((msg, i) => {
-    const prev = messages[i - 1];
+// ── Pin system row ────────────────────────────────────────────────────────────
+function PinSystemRow({ event }: { event: PinEvent }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8,
+      padding: '4px 20px',
+      opacity: 0.65,
+    }}>
+      <div style={{
+        width: 36, display: 'flex', justifyContent: 'center', flexShrink: 0,
+      }}>
+        <Pin size={12} style={{ color: 'var(--color-accent)', transform: 'rotate(45deg)' }} />
+      </div>
+      <span style={{ fontSize: 12, color: 'var(--color-muted)' }}>
+        <strong style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
+          {event.pinnedByName}
+        </strong>
+        {' pinned a message'}
+      </span>
+    </div>
+  );
+}
+
+// Group consecutive REAL messages from the same author within 5 minutes
+function groupMessages(items: MessageOrPin[]) {
+  let lastRealMsg: Message | null = null;
+  return items.map((item) => {
+    if (isPinEvent(item)) {
+      return { item, compact: false };
+    }
+    const msg = item as Message;
+    const prev = lastRealMsg;
     const compact =
       !!prev &&
       !msg.replyTo &&
       !msg.deleted &&
       prev.author.id === msg.author.id &&
       new Date(msg.createdAt).getTime() - new Date(prev.createdAt).getTime() < 5 * 60_000;
-    return { message: msg, compact };
+    lastRealMsg = msg;
+    return { item, compact };
   });
 }
 
@@ -32,7 +62,7 @@ export function MessageList({ messages, hasMore, isLoading, onLoadMore, onReply 
   const isAtBottom        = useRef(true);
   const savedScrollHeight = useRef(0);
   const lastMessageCount  = useRef(messages.length);
-  const didHighlight      = useRef(false);          // only flash once per navigation
+  const didHighlight      = useRef(false);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightId = searchParams.get('highlight');
@@ -40,13 +70,11 @@ export function MessageList({ messages, hasMore, isLoading, onLoadMore, onReply 
   /* ── Scroll to highlighted message once messages load ───────────── */
   useEffect(() => {
     if (!highlightId || didHighlight.current) return;
-    // Wait a tick so the DOM has rendered
     const t = setTimeout(() => {
       const el = document.getElementById(`msg-${highlightId}`);
-      if (!el) return; // message not in current window — silently skip
+      if (!el) return;
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       didHighlight.current = true;
-      // Remove ?highlight from URL after 3s (keeps URL clean)
       setTimeout(() => {
         setSearchParams((p) => { p.delete('highlight'); return p; }, { replace: true });
         didHighlight.current = false;
@@ -97,17 +125,21 @@ export function MessageList({ messages, hasMore, isLoading, onLoadMore, onReply 
         </div>
       )}
 
-      {/* Messages */}
+      {/* Messages + pin system rows */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {grouped.map(({ message, compact }) => (
-          <MessageItem
-            key={message.id}
-            message={message}
-            compact={compact}
-            onReply={() => onReply(message)}
-            isHighlighted={message.id === highlightId}
-          />
-        ))}
+        {grouped.map(({ item, compact }) =>
+          isPinEvent(item) ? (
+            <PinSystemRow key={item.id} event={item} />
+          ) : (
+            <MessageItem
+              key={item.id}
+              message={item as Message}
+              compact={compact}
+              onReply={() => onReply(item as Message)}
+              isHighlighted={(item as Message).id === highlightId}
+            />
+          ),
+        )}
       </div>
 
       {/* Anchor for scroll-to-bottom */}

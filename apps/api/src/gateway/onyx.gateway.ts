@@ -269,6 +269,40 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       .emit('message:deleted', { messageId: data.messageId, channelId: message.channelId });
   }
 
+  @SubscribeMessage('message:pin')
+  async handleMessagePin(
+    @ConnectedSocket() client: AuthSocket,
+    @MessageBody() data: { messageId: string },
+  ) {
+    if (client.user.role !== 'ADMIN') return; // admins only
+
+    const existing = await this.prisma.message.findUnique({
+      where: { id: data.messageId },
+    });
+    if (!existing || existing.deleted) return;
+
+    const updated = await this.prisma.message.update({
+      where: { id: data.messageId },
+      data: { pinned: !existing.pinned },
+      include: MSG_INCLUDE,
+    });
+
+    // Broadcast updated message so clients refresh pinned indicator
+    this.server
+      .to(`channel:${existing.channelId}`)
+      .emit('message:updated', { message: updated });
+
+    // If newly pinned, also emit an event to insert a system row in chat
+    if (updated.pinned) {
+      this.server.to(`channel:${existing.channelId}`).emit('message:pinned', {
+        messageId: updated.id,
+        channelId: updated.channelId,
+        pinnedBy: { id: client.user.id, displayName: client.user.displayName },
+        pinned: true,
+      });
+    }
+  }
+
   // ── Typing ────────────────────────────────────────────────────────────────────
   @SubscribeMessage('typing:start')
   handleTypingStart(@ConnectedSocket() client: AuthSocket, @MessageBody() data: { channelId: string }) {

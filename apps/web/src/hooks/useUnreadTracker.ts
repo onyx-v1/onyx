@@ -39,12 +39,34 @@ export function useUnreadTracker() {
       useChannelStore.getState().addMention(channelId);
     };
 
+    // Update pinned state on an existing cached message
+    const onUpdated = ({ message }: WsEvents.MessageUpdated) => {
+      useMessageStore.getState().updateMessage(message.channelId, message.id, { pinned: message.pinned });
+    };
+
+    // Insert a "X pinned a message" system row in the channel's message list
+    const onPinned = ({ messageId, channelId, pinnedBy }: WsEvents.MessagePinned) => {
+      useMessageStore.getState().addPinEvent(channelId, {
+        _pinEvent:    true,
+        id:           `pin-${messageId}-${Date.now()}`,
+        channelId,
+        messageId,
+        pinnedByName: pinnedBy.displayName,
+        createdAt:    new Date(),
+      });
+    };
+
     socket.on('message:new',          onMessage);
     socket.on('mention:notification', onMention);
+    socket.on('message:updated',      onUpdated);
+    socket.on('message:pinned',       onPinned);
 
     return () => {
       socket.off('message:new',          onMessage);
       socket.off('mention:notification', onMention);
+      socket.off('message:updated',      onUpdated);
+      socket.off('message:pinned',       onPinned);
     };
   }, [connectionId]);
 }
+
