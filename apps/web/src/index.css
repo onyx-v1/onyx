@@ -119,7 +119,6 @@
     right: 0;
     bottom: 0;
     background-color: var(--color-panel);
-    border-top-left-radius: var(--radius-panel);
     overflow: hidden;
     z-index: 10;
   }
