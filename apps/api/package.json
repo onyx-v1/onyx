@@ -24,6 +24,7 @@
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.3.10",
     "@nestjs/platform-socket.io": "^10.3.10",
+    "@nestjs/serve-static": "^4.0.2",
     "@nestjs/websockets": "^10.3.10",
     "@onyx/types": "*",
     "@prisma/client": "^5.16.1",

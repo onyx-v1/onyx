@@ -12,7 +12,7 @@ import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
-import { WsEvents } from '@onyx/types';
+import type { WsEvents } from '@onyx/types';
 
 interface AuthSocket extends Socket {
   user: { id: string; username: string; displayName: string; role: string };
