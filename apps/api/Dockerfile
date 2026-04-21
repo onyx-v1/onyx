@@ -63,9 +63,13 @@ COPY --from=builder /app/node_modules/@prisma  ./node_modules/@prisma
 # Copy built frontend into API static folder
 COPY --from=builder /app/apps/web/dist         ./apps/api/client
 
+# Install ts-node globally so `prisma db seed` works (seed.ts uses ts-node)
+RUN npm install -g ts-node tsconfig-paths typescript
+
 WORKDIR /app/apps/api
 
 EXPOSE 3000
 ENV NODE_ENV=production
 
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss && npx prisma db seed && node dist/main"]
+# Seed is non-fatal (|| true) — safe on already-seeded DBs
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && (npx prisma db seed || echo '⚠ Seed skipped') && node dist/main"]
