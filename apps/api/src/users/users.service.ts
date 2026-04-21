@@ -63,12 +63,22 @@ export class UsersService {
       throw new ConflictException('Cannot delete the admin account');
     }
 
-    await this.prisma.session.deleteMany({ where: { userId: id } });
+    // 1. Null out replyToId for any message that replies to one of this user's messages
+    //    (prevents FK violation when we delete the user's messages next)
     await this.prisma.message.updateMany({
-      where: { authorId: id },
-      data: { deleted: true, content: '[deleted]' },
+      where: { replyTo: { authorId: id } },
+      data:  { replyToId: null },
     });
+
+    // 2. Hard-delete the user's messages (soft-delete keeps authorId FK → still fails)
+    await this.prisma.message.deleteMany({ where: { authorId: id } });
+
+    // 3. Delete sessions
+    await this.prisma.session.deleteMany({ where: { userId: id } });
+
+    // 4. Finally remove the user row
     await this.prisma.user.delete({ where: { id } });
+
     return { ok: true };
   }
 }
