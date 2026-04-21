@@ -12,6 +12,11 @@ export class MessagesController {
     return this.messagesService.search(q, channelId);
   }
 
+  @Get('channel/:channelId/pinned')
+  getPinned(@Param('channelId') channelId: string) {
+    return this.messagesService.getPinnedMessages(channelId);
+  }
+
   @Get('channel/:channelId')
   findByChannel(
     @Param('channelId') channelId: string,

@@ -39,6 +39,14 @@ export class MessagesService {
     });
   }
 
+  async getPinnedMessages(channelId: string) {
+    return this.prisma.message.findMany({
+      where: { channelId, pinned: true, deleted: false },
+      include: MESSAGE_INCLUDE,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async search(query: string, channelId?: string) {
     if (!query?.trim() || query.trim().length < 2) return [];
     return this.prisma.message.findMany({
