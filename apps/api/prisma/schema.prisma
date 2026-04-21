@@ -1,0 +1,93 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+enum ChannelType {
+  TEXT
+  VOICE
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
+model User {
+  id          String    @id @default(cuid())
+  username    String    @unique
+  displayName String
+  role        Role      @default(MEMBER)
+  createdAt   DateTime  @default(now())
+
+  messages Message[]
+  sessions Session[]
+
+  @@map("users")
+}
+
+model Community {
+  id   String @id @default(cuid())
+  name String
+
+  channels Channel[]
+
+  @@map("communities")
+}
+
+model Channel {
+  id          String      @id @default(cuid())
+  name        String
+  type        ChannelType
+  position    Int         @default(0)
+  communityId String
+
+  community Community @relation(fields: [communityId], references: [id])
+  messages  Message[]
+
+  @@unique([communityId, name])
+  @@map("channels")
+}
+
+model Message {
+  id        String    @id @default(cuid())
+  content   String
+  createdAt DateTime  @default(now())
+  deleted   Boolean   @default(false)
+
+  authorId  String
+  author    User    @relation(fields: [authorId], references: [id])
+
+  channelId String
+  channel   Channel @relation(fields: [channelId], references: [id])
+
+  replyToId String?
+  replyTo   Message?  @relation("replies", fields: [replyToId], references: [id])
+  replies   Message[] @relation("replies")
+
+  @@index([channelId, createdAt])
+  @@map("messages")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  refreshToken String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}

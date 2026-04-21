@@ -1,0 +1,119 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Base Reset ─────────────────────────────────────────────────────────────── */
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html, body, #root {
+    height: 100%;
+    overflow: hidden;
+    background-color: #181818;
+    color: #f0f0f0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Premium thin scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: #444; }
+
+  a { color: inherit; text-decoration: none; }
+  button { cursor: pointer; border: none; background: none; font-family: inherit; }
+  input, textarea { font-family: inherit; }
+}
+
+/* ─── Layout Shell ───────────────────────────────────────────────────────────── */
+@layer components {
+  .app-header {
+    @apply fixed top-0 left-0 right-0 flex items-center px-4 bg-base z-30;
+    height: 60px;
+  }
+
+  .app-sidebar {
+    @apply fixed left-0 bottom-0 flex flex-col bg-base z-20;
+    top: 60px;
+    width: 220px;
+  }
+
+  .app-main {
+    @apply fixed right-0 bottom-0 bg-panel z-10;
+    top: 60px;
+    left: 220px;
+    border-top-left-radius: 16px;
+    overflow: hidden;
+  }
+
+  /* ─── Channel List ─────────────────────────────────── */
+  .channel-item {
+    @apply flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-all duration-100;
+    @apply text-muted text-sm;
+  }
+  .channel-item:hover { @apply bg-hover text-primary; }
+  .channel-item.active { @apply bg-active text-primary; }
+  .channel-item.has-unread { @apply text-primary font-semibold; }
+
+  /* ─── Messages ─────────────────────────────────────── */
+  .message-group {
+    @apply flex gap-3 px-4 py-1 hover:bg-white/[0.02] rounded-md transition-colors duration-100;
+  }
+  .message-group:hover .message-actions { @apply opacity-100; }
+  .message-actions {
+    @apply opacity-0 transition-opacity duration-100 flex items-center gap-1;
+  }
+
+  /* ─── Buttons ──────────────────────────────────────── */
+  .btn-primary {
+    @apply bg-accent hover:bg-accent-hover text-white font-semibold px-4 py-2 rounded-lg transition-colors duration-150;
+  }
+  .btn-secondary {
+    @apply bg-elevated hover:bg-hover text-primary font-medium px-4 py-2 rounded-lg transition-colors duration-150;
+  }
+  .btn-danger {
+    @apply bg-danger/10 hover:bg-danger/20 text-danger font-medium px-4 py-2 rounded-lg transition-colors duration-150;
+  }
+  .btn-ghost {
+    @apply text-muted hover:text-primary hover:bg-hover px-2 py-1 rounded transition-colors duration-100;
+  }
+
+  /* ─── Inputs ───────────────────────────────────────── */
+  .input-field {
+    @apply w-full bg-input text-primary px-4 py-3 rounded-lg outline-none border border-transparent;
+    @apply focus:border-accent/50 transition-colors duration-150 text-sm;
+    @apply placeholder:text-muted;
+  }
+
+  /* ─── Modal Overlay ────────────────────────────────── */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center;
+  }
+  .modal-card {
+    @apply bg-elevated rounded-xl p-6 w-full max-w-md shadow-2xl animate-fade-in;
+  }
+
+  /* ─── User Profile ─────────────────────────────────── */
+  .user-profile-bar {
+    @apply flex items-center gap-3 p-3 bg-input rounded-lg mx-2 mb-2;
+  }
+
+  /* ─── Voice Cards ──────────────────────────────────── */
+  .voice-participant-card {
+    @apply flex flex-col items-center gap-2 p-4 bg-input rounded-xl;
+  }
+}
+
+/* ─── Utilities ──────────────────────────────────────────────────────────────── */
+@layer utilities {
+  .text-gradient-accent {
+    background: linear-gradient(135deg, #8b7cf8, #a695fa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "onyx",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "dev:api": "turbo dev --filter=@onyx/api",
+    "dev:web": "turbo dev --filter=@onyx/web",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "db:migrate": "turbo db:migrate --filter=@onyx/api",
+    "db:seed": "turbo db:seed --filter=@onyx/api",
+    "db:generate": "turbo db:generate --filter=@onyx/api"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}

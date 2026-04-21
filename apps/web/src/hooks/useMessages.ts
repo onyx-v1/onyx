@@ -1,0 +1,63 @@
+import { useEffect, useCallback } from 'react';
+import { useMessageStore } from '../stores/messageStore';
+import { useChannelStore } from '../stores/channelStore';
+import { getSocket } from './useSocket';
+import { WsEvents } from '@onyx/types';
+
+export function useMessages(channelId: string) {
+  const { messages, hasMore, loading, fetchHistory, addMessage, deleteMessage } = useMessageStore();
+  const { markUnread, activeChannelId } = useChannelStore();
+
+  const channelMessages = messages.get(channelId) ?? [];
+  const channelHasMore = hasMore.get(channelId) ?? true;
+  const isLoading = loading.get(channelId) ?? false;
+
+  // Initial load
+  useEffect(() => {
+    if (!channelId) return;
+    if (!messages.has(channelId)) {
+      fetchHistory(channelId);
+    }
+  }, [channelId]);
+
+  // Subscribe to real-time events for this channel
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket || !channelId) return;
+
+    socket.emit('channel:join', { channelId });
+
+    const handleNewMessage = ({ message }: WsEvents.MessageNew) => {
+      if (message.channelId === channelId) {
+        addMessage(channelId, message);
+        if (activeChannelId !== channelId) markUnread(channelId);
+      }
+    };
+
+    const handleDeleted = ({ messageId, channelId: cId }: WsEvents.MessageDeleted) => {
+      if (cId === channelId) deleteMessage(channelId, messageId);
+    };
+
+    socket.on('message:new', handleNewMessage);
+    socket.on('message:deleted', handleDeleted);
+
+    return () => {
+      socket.emit('channel:leave', { channelId });
+      socket.off('message:new', handleNewMessage);
+      socket.off('message:deleted', handleDeleted);
+    };
+  }, [channelId]);
+
+  const loadMore = useCallback(() => {
+    if (!channelHasMore || isLoading) return;
+    const oldest = channelMessages[0];
+    if (oldest) fetchHistory(channelId, oldest.createdAt);
+  }, [channelId, channelMessages, channelHasMore, isLoading]);
+
+  return {
+    messages: channelMessages,
+    hasMore: channelHasMore,
+    isLoading,
+    loadMore,
+  };
+}
