@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
 import { AppShell } from './components/layout/AppShell';
 import { LoginPage } from './pages/LoginPage';
@@ -23,6 +23,19 @@ export function AppRouter() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
 
+      {/* ── Admin — full-page, outside AppShell ─────────────── */}
+      <Route
+        path="/admin"
+        element={
+          <PrivateRoute>
+            <AdminRoute>
+              <AdminPage />
+            </AdminRoute>
+          </PrivateRoute>
+        }
+      />
+
+      {/* ── Main app shell ────────────────────────────────────── */}
       <Route
         path="/"
         element={
@@ -34,14 +47,6 @@ export function AppRouter() {
         <Route index element={<Navigate to="/channel/default" replace />} />
         <Route path="channel/:channelId" element={<ChannelPage />} />
         <Route path="voice/:channelId" element={<VoicePage />} />
-        <Route
-          path="admin"
-          element={
-            <AdminRoute>
-              <AdminPage />
-            </AdminRoute>
-          }
-        />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

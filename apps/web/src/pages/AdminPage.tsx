@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Users, Hash, Trash2, Plus, Volume2, Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Users, Hash, Trash2, Plus, Volume2, Loader2, ArrowLeft, Shield } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { useChannelStore } from '../stores/channelStore';
 import { User, Channel } from '@onyx/types';
@@ -9,6 +10,7 @@ import { Avatar } from '../components/ui/Avatar';
 type Tab = 'users' | 'channels';
 
 export function AdminPage() {
+  const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>('users');
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
@@ -81,44 +83,87 @@ export function AdminPage() {
   };
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
-        <h1 className="text-base font-bold text-primary">Admin Panel</h1>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setShowCreateUser(true)}
-            className="btn-primary flex items-center gap-2 text-sm"
-          >
-            <Plus size={14} /> Add User
-          </button>
-          <button
-            onClick={() => setShowCreateChannel(true)}
-            className="btn-secondary flex items-center gap-2 text-sm"
-          >
-            <Plus size={14} /> Add Channel
-          </button>
-        </div>
+    <div
+      className="flex flex-col h-screen overflow-hidden"
+      style={{
+        background: 'var(--color-panel)',
+        animation: 'page-enter 0.2s ease-out',
+      }}
+    >
+      {/* ── Admin Header ───────────────────────────────────────── */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
+          padding: '0 24px',
+          height: 'var(--size-header)',
+          background: 'var(--color-base)',
+          borderBottom: '1px solid var(--color-border)',
+          flexShrink: 0,
+        }}
+      >
+        <button
+          onClick={() => navigate(-1)}
+          className="btn-ghost"
+          style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}
+          title="Back"
+        >
+          <ArrowLeft size={18} />
+          Back
+        </button>
+
+        <div style={{ width: 1, height: 20, background: 'var(--color-border)' }} />
+
+        <Shield size={18} style={{ color: 'var(--color-accent)' }} />
+        <span style={{ fontWeight: 700, fontSize: 16, color: 'var(--color-primary)' }}>
+          Admin Panel
+        </span>
+
+        <div style={{ flex: 1 }} />
+
+        <button
+          onClick={() => setShowCreateUser(true)}
+          className="btn-primary"
+          style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}
+        >
+          <Plus size={15} /> Add User
+        </button>
+        <button
+          onClick={() => setShowCreateChannel(true)}
+          className="btn-secondary"
+          style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}
+        >
+          <Plus size={15} /> Add Channel
+        </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 px-6 pt-4">
-        {(['users', 'channels'] as Tab[]).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${
-              tab === t ? 'bg-active text-primary' : 'text-muted hover:text-primary hover:bg-hover'
-            }`}
-          >
-            {t === 'users' ? <Users size={14} /> : <Hash size={14} />}
-            {t}
-          </button>
-        ))}
-      </div>
+      {/* ── Tabs + Content ─────────────────────────────────────── */}
+      <div className="flex-1 overflow-y-auto">
+        <div style={{ maxWidth: 860, margin: '0 auto', padding: '24px 24px 0' }}>
+          {/* Tabs */}
+          <div className="flex gap-1 mb-6">
+            {(['users', 'channels'] as Tab[]).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '8px 18px',
+                  borderRadius: 'var(--radius-control)',
+                  fontSize: 14, fontWeight: 500,
+                  background: tab === t ? 'var(--color-active)' : 'transparent',
+                  color: tab === t ? 'var(--color-primary)' : 'var(--color-muted)',
+                  transition: 'background 0.15s, color 0.15s',
+                  textTransform: 'capitalize',
+                }}
+              >
+                {t === 'users' ? <Users size={15} /> : <Hash size={15} />}
+                {t}
+              </button>
+            ))}
+          </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
         {tab === 'users' && (
           <div className="flex flex-col gap-2">
             {loading && <Loader2 size={16} className="animate-spin text-muted mx-auto mt-8" />}
@@ -167,7 +212,8 @@ export function AdminPage() {
             ))}
           </div>
         )}
-      </div>
+        </div>{/* end max-width container */}
+      </div>{/* end flex-1 overflow */}
 
       {/* Create User Modal */}
       {showCreateUser && (

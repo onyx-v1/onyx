@@ -19,35 +19,35 @@ export function ChannelPage() {
   if (!channelId) return <Navigate to="/" replace />;
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Empty state */}
-      {messages.length === 0 && !isLoading && (
-        <div className="flex-1 flex flex-col items-center justify-center gap-3 px-8">
-          <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center">
-            <Hash size={28} className="text-accent" />
-          </div>
-          <div className="text-center">
-            <h3 className="text-base font-semibold text-primary">Welcome to #{channel?.name}</h3>
-            <p className="text-sm text-muted mt-1">This is the beginning of the channel. Say something!</p>
-          </div>
-        </div>
-      )}
+    // key forces full remount on channel switch — prevents stale scroll state
+    <div key={channelId} className="flex flex-col h-full" style={{ animation: 'channel-enter 0.18s ease-out' }}>
 
-      {/* Message list */}
-      {messages.length > 0 && (
-        <MessageList
-          messages={messages}
-          hasMore={hasMore}
-          isLoading={isLoading}
-          onLoadMore={loadMore}
-          onReply={setReplyTo}
-        />
-      )}
+      {/* Scrollable message area — always flex-1 so input stays at bottom */}
+      <div className="flex-1 overflow-hidden flex flex-col">
+        {messages.length === 0 && !isLoading ? (
+          /* Empty state — lives inside the flex-1 box */
+          <div className="flex-1 flex flex-col items-center justify-center gap-3 px-8">
+            <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center">
+              <Hash size={28} className="text-accent" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-lg font-semibold text-primary">Welcome to #{channel?.name}</h3>
+              <p className="text-base text-muted mt-1">This is the beginning of the channel. Say something!</p>
+            </div>
+          </div>
+        ) : (
+          <MessageList
+            messages={messages}
+            hasMore={hasMore}
+            isLoading={isLoading}
+            onLoadMore={loadMore}
+            onReply={setReplyTo}
+          />
+        )}
+      </div>
 
-      {/* Typing indicator */}
+      {/* Typing + input — always anchored to bottom */}
       <TypingIndicator channelId={channelId} />
-
-      {/* Input */}
       <MessageInput
         channelId={channelId}
         replyTo={replyTo}

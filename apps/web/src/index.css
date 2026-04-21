@@ -260,18 +260,19 @@
   /* ── Message Input Container ───────────────────────────────────── */
   .message-input-wrap {
     flex-shrink: 0;
-    padding: 0 16px 16px;
+    padding: 0 14px 14px;
   }
 
   .message-input-box {
     display: flex;
-    align-items: flex-end;
+    align-items: center;      /* center not flex-end — keeps compact when 1 line */
     gap: 10px;
     background: var(--color-input);
-    border-radius: var(--radius-control);
-    padding: 12px 14px;
+    border-radius: 24px;       /* very rounded */
+    padding: 9px 14px;         /* tighter than before */
     border: 1px solid transparent;
     transition: border-color 0.15s;
+    min-height: 46px;
   }
   .message-input-box:focus-within {
     border-color: rgba(139,124,248,0.25);
@@ -308,4 +309,12 @@
 @keyframes slide-in {
   from { opacity: 0; transform: translateX(-8px); }
   to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes channel-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes page-enter {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
