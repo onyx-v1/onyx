@@ -32,9 +32,20 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   @WebSocketServer()
   server: Server;
 
-  private onlineUsers = new Map<string, Set<string>>();
-  private voiceRooms = new Map<string, Map<string, string>>();
-  private typingState = new Map<string, Map<string, { displayName: string; timer: NodeJS.Timeout }>>();
+  // ── Per-instance in-memory state ─────────────────────────────────────────────
+  // NOTE: For multi-instance deployments, move these to Redis HASH/SET.
+  // With the Redis Socket.IO adapter, broadcast/emit still works across instances,
+  // but the Maps below are local — adequate for Railway's single-instance plan.
+  private onlineUsers  = new Map<string, Set<string>>();   // userId → Set<socketId>
+  private voiceRooms   = new Map<string, Map<string, string>>(); // channelId → Map<userId, socketId>
+  private typingState  = new Map<string, Map<string, { displayName: string; timer: NodeJS.Timeout }>>();
+
+  // ── Throttle: one typing:update broadcast per channel per 500 ms ─────────────
+  private typingThrottle = new Map<string, NodeJS.Timeout>();
+
+  // ── Debounce: presence:update batched per tick to avoid N broadcasts on mass joins
+  private pendingPresence: { userId: string; online: boolean }[] = [];
+  private presenceFlushTimer: NodeJS.Timeout | null = null;
 
   constructor(
     private jwtService: JwtService,
@@ -42,28 +53,22 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     private prisma: PrismaService,
   ) {}
 
+  // ── Auth middleware ───────────────────────────────────────────────────────────
   afterInit(server: Server) {
     server.use(async (socket: any, next) => {
       try {
         const token =
           socket.handshake.auth?.token ||
           socket.handshake.headers?.authorization?.replace('Bearer ', '');
-
         if (!token) return next(new Error('Authentication required'));
 
         const payload = this.jwtService.verify(token, {
           secret: this.config.get<string>('JWT_SECRET'),
         });
-
         const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
         if (!user) return next(new Error('User not found'));
 
-        socket.user = {
-          id: user.id,
-          username: user.username,
-          displayName: user.displayName,
-          role: user.role,
-        };
+        socket.user = { id: user.id, username: user.username, displayName: user.displayName, role: user.role };
         next();
       } catch {
         next(new Error('Invalid token'));
@@ -71,23 +76,21 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     });
   }
 
+  // ── Connection lifecycle ──────────────────────────────────────────────────────
   handleConnection(client: AuthSocket) {
     const { id, displayName } = client.user;
 
     if (!this.onlineUsers.has(id)) this.onlineUsers.set(id, new Set());
-    const wasOffline = this.onlineUsers.get(id).size === 0;
-    this.onlineUsers.get(id).add(client.id);
+    const wasOffline = this.onlineUsers.get(id)!.size === 0;
+    this.onlineUsers.get(id)!.add(client.id);
 
-    if (wasOffline) {
-      this.server.emit('presence:update', { userId: id, online: true });
-    }
+    if (wasOffline) this.schedulePresenceFlush(id, true);
 
-    const onlineUserIds = [...this.onlineUsers.entries()]
+    // Send current presence snapshot only to the new client
+    const onlineIds = [...this.onlineUsers.entries()]
       .filter(([, s]) => s.size > 0)
       .map(([uid]) => uid);
-    client.emit('presence:init', { onlineUserIds });
-
-    console.log(`[WS] Connected: @${client.user.username} (${client.id})`);
+    client.emit('presence:init', { onlineUserIds: onlineIds });
   }
 
   handleDisconnect(client: AuthSocket) {
@@ -95,13 +98,14 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     const { id } = client.user;
 
     if (this.onlineUsers.has(id)) {
-      this.onlineUsers.get(id).delete(client.id);
-      if (this.onlineUsers.get(id).size === 0) {
+      this.onlineUsers.get(id)!.delete(client.id);
+      if (this.onlineUsers.get(id)!.size === 0) {
         this.onlineUsers.delete(id);
-        this.server.emit('presence:update', { userId: id, online: false });
+        this.schedulePresenceFlush(id, false);
       }
     }
 
+    // Clean up voice rooms
     for (const [channelId, room] of this.voiceRooms.entries()) {
       if (room.has(id)) {
         room.delete(id);
@@ -110,17 +114,34 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       }
     }
 
+    // Clean up typing state
     for (const [channelId, typers] of this.typingState.entries()) {
       if (typers.has(id)) {
-        clearTimeout(typers.get(id).timer);
+        clearTimeout(typers.get(id)!.timer);
         typers.delete(id);
-        this.broadcastTyping(channelId);
+        this.broadcastTypingThrottled(channelId);
       }
     }
-
-    console.log(`[WS] Disconnected: @${client.user.username}`);
   }
 
+  // ── Presence batching: collect N connect/disconnects and flush in one broadcast ─
+  private schedulePresenceFlush(userId: string, online: boolean) {
+    // Remove any earlier pending entry for this user (last one wins)
+    this.pendingPresence = this.pendingPresence.filter((p) => p.userId !== userId);
+    this.pendingPresence.push({ userId, online });
+
+    if (!this.presenceFlushTimer) {
+      this.presenceFlushTimer = setTimeout(() => {
+        const batch = this.pendingPresence.splice(0);
+        for (const p of batch) {
+          this.server.emit('presence:update', { userId: p.userId, online: p.online });
+        }
+        this.presenceFlushTimer = null;
+      }, 200); // flush up to 200ms of join bursts in one pass
+    }
+  }
+
+  // ── Channel events ────────────────────────────────────────────────────────────
   @SubscribeMessage('channel:join')
   handleChannelJoin(@ConnectedSocket() client: AuthSocket, @MessageBody() data: { channelId: string }) {
     client.join(`channel:${data.channelId}`);
@@ -131,8 +152,12 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     client.leave(`channel:${data.channelId}`);
   }
 
+  // ── Messages ──────────────────────────────────────────────────────────────────
   @SubscribeMessage('message:send')
-  async handleMessageSend(@ConnectedSocket() client: AuthSocket, @MessageBody() data: { channelId: string; content: string; replyToId?: string }) {
+  async handleMessageSend(
+    @ConnectedSocket() client: AuthSocket,
+    @MessageBody() data: { channelId: string; content: string; replyToId?: string },
+  ) {
     if (!data.content?.trim()) return;
 
     const message = await this.prisma.message.create({
@@ -150,7 +175,10 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   }
 
   @SubscribeMessage('message:delete')
-  async handleMessageDelete(@ConnectedSocket() client: AuthSocket, @MessageBody() data: { messageId: string }) {
+  async handleMessageDelete(
+    @ConnectedSocket() client: AuthSocket,
+    @MessageBody() data: { messageId: string },
+  ) {
     const message = await this.prisma.message.findUnique({ where: { id: data.messageId } });
     if (!message) return;
     if (client.user.role !== 'ADMIN' && message.authorId !== client.user.id) return;
@@ -165,17 +193,19 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       .emit('message:deleted', { messageId: data.messageId, channelId: message.channelId });
   }
 
+  // ── Typing ────────────────────────────────────────────────────────────────────
   @SubscribeMessage('typing:start')
   handleTypingStart(@ConnectedSocket() client: AuthSocket, @MessageBody() data: { channelId: string }) {
     const { channelId } = data;
     if (!this.typingState.has(channelId)) this.typingState.set(channelId, new Map());
 
-    const typers = this.typingState.get(channelId);
-    if (typers.has(client.user.id)) clearTimeout(typers.get(client.user.id).timer);
+    const typers = this.typingState.get(channelId)!;
+    if (typers.has(client.user.id)) clearTimeout(typers.get(client.user.id)!.timer);
 
     const timer = setTimeout(() => this.stopTyping(channelId, client.user.id), 5000);
     typers.set(client.user.id, { displayName: client.user.displayName, timer });
-    this.broadcastTyping(channelId);
+
+    this.broadcastTypingThrottled(channelId);
   }
 
   @SubscribeMessage('typing:stop')
@@ -183,13 +213,14 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     this.stopTyping(data.channelId, client.user.id);
   }
 
+  // ── Voice ─────────────────────────────────────────────────────────────────────
   @SubscribeMessage('voice:join')
   async handleVoiceJoin(@ConnectedSocket() client: AuthSocket, @MessageBody() data: { channelId: string }) {
     const { channelId } = data;
     if (!this.voiceRooms.has(channelId)) this.voiceRooms.set(channelId, new Map());
-    const room = this.voiceRooms.get(channelId);
+    const room = this.voiceRooms.get(channelId)!;
 
-    const peerIds = [...room.keys()];
+    const peerIds   = [...room.keys()];
     const peerUsers = await this.prisma.user.findMany({
       where: { id: { in: peerIds } },
       select: { id: true, displayName: true },
@@ -202,7 +233,6 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       channelId,
       peers: peerUsers.map((u) => ({ id: u.id, displayName: u.displayName, isMuted: false })),
     });
-
     client.to(`voice:${channelId}`).emit('voice:peer_joined', {
       channelId,
       peer: { id: client.user.id, displayName: client.user.displayName },
@@ -213,44 +243,56 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   handleVoiceLeave(@ConnectedSocket() client: AuthSocket, @MessageBody() data: { channelId: string }) {
     const { channelId } = data;
     if (this.voiceRooms.has(channelId)) {
-      this.voiceRooms.get(channelId).delete(client.user.id);
-      if (this.voiceRooms.get(channelId).size === 0) this.voiceRooms.delete(channelId);
+      this.voiceRooms.get(channelId)!.delete(client.user.id);
+      if (this.voiceRooms.get(channelId)!.size === 0) this.voiceRooms.delete(channelId);
     }
     client.leave(`voice:${channelId}`);
     client.to(`voice:${channelId}`).emit('voice:peer_left', { channelId, peerId: client.user.id });
   }
 
   @SubscribeMessage('voice:signal')
-  handleVoiceSignal(@ConnectedSocket() client: AuthSocket, @MessageBody() data: { type: string; to: string; channelId: string; data: unknown }) {
+  handleVoiceSignal(
+    @ConnectedSocket() client: AuthSocket,
+    @MessageBody() data: { type: string; to: string; channelId: string; data: unknown },
+  ) {
     const room = this.voiceRooms.get(data.channelId);
     if (!room) return;
     const targetSocketId = room.get(data.to);
     if (!targetSocketId) return;
-
-    this.server.to(targetSocketId).emit('voice:signal', {
-      type: data.type,
-      from: client.user.id,
-      data: data.data,
-    });
+    this.server.to(targetSocketId).emit('voice:signal', { type: data.type, from: client.user.id, data: data.data });
   }
 
+  // ── Admin helper ──────────────────────────────────────────────────────────────
+  broadcastChannelUpdate(channels: any[]) {
+    this.server.emit('channels:updated', { channels });
+  }
+
+  // ── Private helpers ───────────────────────────────────────────────────────────
   private stopTyping(channelId: string, userId: string) {
     const typers = this.typingState.get(channelId);
     if (!typers?.has(userId)) return;
-    clearTimeout(typers.get(userId).timer);
+    clearTimeout(typers.get(userId)!.timer);
     typers.delete(userId);
-    this.broadcastTyping(channelId);
+    this.broadcastTypingThrottled(channelId);
   }
 
-  private broadcastTyping(channelId: string) {
+  /** Throttled typing broadcast: max 1 emit per channel per 400 ms.
+   *  With 50 users typing simultaneously, this caps at 2-3 broadcasts/sec
+   *  instead of 50 broadcasts/sec. */
+  private broadcastTypingThrottled(channelId: string) {
+    if (this.typingThrottle.has(channelId)) return; // already scheduled
+    this.typingThrottle.set(
+      channelId,
+      setTimeout(() => {
+        this.typingThrottle.delete(channelId);
+        this.emitTyping(channelId);
+      }, 400),
+    );
+  }
+
+  private emitTyping(channelId: string) {
     const typers = this.typingState.get(channelId) ?? new Map();
     const users = [...typers.entries()].map(([id, { displayName }]) => ({ id, displayName }));
-    this.server
-      .to(`channel:${channelId}`)
-      .emit('typing:update', { channelId, users });
-  }
-
-  broadcastChannelUpdate(channels: any[]) {
-    this.server.emit('channels:updated', { channels });
+    this.server.to(`channel:${channelId}`).emit('typing:update', { channelId, users });
   }
 }

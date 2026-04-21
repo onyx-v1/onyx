@@ -8,74 +8,84 @@ export const apiClient = axios.create({
   withCredentials: true,
 });
 
-// ─── Request Interceptor: inject token ───────────────────────────────────────
+// ── Request: inject access token ──────────────────────────────────────────────
 apiClient.interceptors.request.use((config) => {
   try {
     const raw = localStorage.getItem('onyx-auth');
-    const stored = raw ? JSON.parse(raw) : null;
-    const token = stored?.state?.accessToken;
+    const token = raw ? JSON.parse(raw)?.state?.accessToken : null;
     if (token) config.headers.Authorization = `Bearer ${token}`;
   } catch {}
   return config;
 });
 
-// ─── Response Interceptor: handle token refresh ───────────────────────────────
+// ── Response: handle 401 → refresh → retry once ───────────────────────────────
 let isRefreshing = false;
-let failedQueue: Array<{ resolve: (token: string) => void; reject: (err: any) => void }> = [];
+let waitQueue: Array<{ resolve: (token: string) => void; reject: (err: any) => void }> = [];
 
-function processQueue(error: any, token: string | null = null) {
-  failedQueue.forEach((prom) => (error ? prom.reject(error) : prom.resolve(token!)));
-  failedQueue = [];
+function flushQueue(error: any, token: string | null = null) {
+  waitQueue.forEach((p) => (error ? p.reject(error) : p.resolve(token!)));
+  waitQueue = [];
+}
+
+function forceLogout() {
+  localStorage.removeItem('onyx-auth');
+  // Clear Zustand auth state without importing authStore (avoids potential circular dep)
+  // The page reload from window.location will do a full reset
+  window.location.href = '/login';
 }
 
 apiClient.interceptors.response.use(
   (res) => res,
   async (error) => {
-    const originalRequest = error.config;
+    const original = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          failedQueue.push({
-            resolve: (token) => {
-              originalRequest.headers.Authorization = `Bearer ${token}`;
-              resolve(apiClient(originalRequest));
-            },
-            reject,
-          });
-        });
-      }
-
-      originalRequest._retry = true;
-      isRefreshing = true;
-
-      try {
-        const raw = localStorage.getItem('onyx-auth');
-        const stored = raw ? JSON.parse(raw) : null;
-        const refreshToken = stored?.state?.refreshToken;
-        if (!refreshToken) throw new Error('No refresh token');
-
-        const { data } = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
-
-        // Patch localStorage directly to avoid import cycle
-        if (stored) {
-          stored.state.accessToken = data.accessToken;
-          localStorage.setItem('onyx-auth', JSON.stringify(stored));
-        }
-
-        processQueue(null, data.accessToken);
-        originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
-        return apiClient(originalRequest);
-      } catch (err) {
-        processQueue(err, null);
-        localStorage.removeItem('onyx-auth');
-        window.location.href = '/login';
-        return Promise.reject(err);
-      } finally {
-        isRefreshing = false;
-      }
+    if (error.response?.status !== 401 || original._retry) {
+      return Promise.reject(error);
     }
 
-    return Promise.reject(error);
+    // Queue concurrent requests while refreshing
+    if (isRefreshing) {
+      return new Promise((resolve, reject) => {
+        waitQueue.push({
+          resolve: (token) => {
+            original.headers.Authorization = `Bearer ${token}`;
+            resolve(apiClient(original));
+          },
+          reject,
+        });
+      });
+    }
+
+    original._retry = true;
+    isRefreshing = true;
+
+    try {
+      const raw = localStorage.getItem('onyx-auth');
+      const stored = raw ? JSON.parse(raw) : null;
+      const refreshToken = stored?.state?.refreshToken;
+      if (!refreshToken) throw new Error('No refresh token');
+
+      const { data } = await axios.post<{ accessToken: string }>(
+        `${API_URL}/auth/refresh`,
+        { refreshToken },
+      );
+
+      // Persist new access token
+      stored.state.accessToken = data.accessToken;
+      localStorage.setItem('onyx-auth', JSON.stringify(stored));
+
+      // Update Zustand store in-place (no import needed — use the persisted storage)
+      // The request interceptor reads from localStorage so future requests are fine.
+
+      flushQueue(null, data.accessToken);
+      original.headers.Authorization = `Bearer ${data.accessToken}`;
+      return apiClient(original);
+    } catch (err) {
+      flushQueue(err, null);
+      forceLogout();
+      return Promise.reject(err);
+    } finally {
+      isRefreshing = false;
+    }
   },
 );

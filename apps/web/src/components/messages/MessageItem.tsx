@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { Reply, Copy, Trash2 } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { Message } from '@onyx/types';
@@ -25,7 +25,7 @@ function formatTime(date: Date): string {
   return format(date, 'MMM d, HH:mm');
 }
 
-export function MessageItem({ message, compact, onReply }: Props) {
+export const MessageItem = memo(function MessageItem({ message, compact, onReply }: Props) {
   const { user } = useAuthStore();
   const [copied, setCopied] = useState(false);
 
@@ -207,4 +207,4 @@ export function MessageItem({ message, compact, onReply }: Props) {
       <style>{`.group:hover { background: rgba(255,255,255,0.02); }`}</style>
     </div>
   );
-}
+});

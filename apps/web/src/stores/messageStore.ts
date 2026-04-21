@@ -58,10 +58,14 @@ export const useMessageStore = create<MessageState>((set, get) => ({
   addMessage: (channelId, message) =>
     set((s) => {
       const existing = s.messages.get(channelId) ?? [];
-      // Deduplicate — skip if message with same ID already exists
+      // Deduplicate
       if (existing.some((m) => m.id === message.id)) return s;
+      // Cap at 200 messages — trim oldest 50 when we exceed 250
+      // Keeps DOM small and memory bounded with 50+ active users
+      const appended = [...existing, message];
+      const capped = appended.length > 250 ? appended.slice(appended.length - 200) : appended;
       const nextMessages = new Map(s.messages);
-      nextMessages.set(channelId, [...existing, message]);
+      nextMessages.set(channelId, capped);
       return { messages: nextMessages };
     }),
 

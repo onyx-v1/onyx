@@ -11,9 +11,41 @@ export function getSocket(): Socket | null {
   return socket;
 }
 
+// ── Attempt to refresh the expired JWT using stored refresh token ─────────────
+async function tryRefreshToken(): Promise<string | null> {
+  try {
+    const raw = localStorage.getItem('onyx-auth');
+    const stored = raw ? JSON.parse(raw) : null;
+    const refreshToken = stored?.state?.refreshToken;
+    if (!refreshToken) return null;
+
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+    const res = await fetch(`${API_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+    if (!res.ok) return null;
+
+    const { accessToken } = await res.json();
+    // Patch localStorage + Zustand store
+    stored.state.accessToken = accessToken;
+    localStorage.setItem('onyx-auth', JSON.stringify(stored));
+    useAuthStore.setState({ accessToken });
+    return accessToken;
+  } catch {
+    return null;
+  }
+}
+
+// ── Force logout and redirect ─────────────────────────────────────────────────
+function forceLogout() {
+  useAuthStore.getState().logout();
+  window.location.href = '/login';
+}
+
 // ── Create / replace the socket instance ─────────────────────────────────────
 function createSocket(token: string): Socket {
-  // Tear down any previous dead instance cleanly
   if (socket) {
     socket.removeAllListeners();
     socket.disconnect();
@@ -25,63 +57,70 @@ function createSocket(token: string): Socket {
   const s = io(WS_URL, {
     auth: { token },
     transports: ['websocket', 'polling'],
-    // ── Reconnection settings ───────────────────────────────
     reconnection: true,
-    reconnectionDelay: 1000,       // 1s initial backoff
-    reconnectionDelayMax: 15000,   // max 15s between retries
-    reconnectionAttempts: Infinity, // NEVER give up
-    timeout: 20000,                // 20s connection timeout
-    // ── Keep-alive ─────────────────────────────────────────
-    pingInterval: 25000,           // server ping every 25s
-    pingTimeout: 20000,            // disconnect if no pong in 20s
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 15000,
+    reconnectionAttempts: Infinity,
+    timeout: 20000,
   });
 
+  // ── Connected ───────────────────────────────────────────────────────────────
   s.on('connect', () => {
-    console.log('[Socket] ✅ Connected:', s.id);
-    // Notify all subscribers (useMessages, etc.) that socket is ready
     useSocketStore.getState().setConnected();
-    // Re-join the active channel after every (re)connection
     const { activeChannelId } = useChannelStore.getState();
-    if (activeChannelId) {
-      s.emit('channel:join', { channelId: activeChannelId });
+    if (activeChannelId) s.emit('channel:join', { channelId: activeChannelId });
+  });
+
+  // ── Auth error — attempt token refresh before giving up ─────────────────────
+  s.on('connect_error', async (err) => {
+    const isAuthError =
+      err.message === 'Invalid token' ||
+      err.message === 'Authentication required' ||
+      err.message === 'jwt expired';
+
+    if (!isAuthError) return; // network error — let socket.io retry normally
+
+    // Stop retrying with the bad token
+    s.io.opts.reconnection = false;
+
+    // Check if HTTP interceptor already refreshed the token
+    const storeToken = useAuthStore.getState().accessToken;
+    if (storeToken && storeToken !== (s as any).auth?.token) {
+      (s as any).auth = { token: storeToken };
+      s.io.opts.reconnection = true;
+      s.connect();
+      return;
+    }
+
+    // Try refreshing ourselves
+    const newToken = await tryRefreshToken();
+    if (newToken) {
+      (s as any).auth = { token: newToken };
+      s.io.opts.reconnection = true;
+      s.connect();
+    } else {
+      forceLogout();
     }
   });
 
+  // ── Disconnected ─────────────────────────────────────────────────────────────
   s.on('disconnect', (reason) => {
-    console.warn('[Socket] ⚠ Disconnected:', reason);
-    // If the server forcefully closed it, Socket.IO won't auto-reconnect.
-    // Kick off reconnection manually.
-    if (reason === 'io server disconnect' || reason === 'transport close') {
+    // 'io server disconnect' means server kicked us — reconnect manually
+    if (reason === 'io server disconnect') {
       setTimeout(() => s.connect(), 1000);
     }
-  });
-
-  s.on('connect_error', (err) => {
-    console.error('[Socket] ✗ Error:', err.message);
-  });
-
-  s.on('reconnect', (attempt) => {
-    console.log(`[Socket] 🔄 Reconnected after ${attempt} attempt(s)`);
-    // Re-join the active channel after reconnection
-    const { activeChannelId } = useChannelStore.getState();
-    if (activeChannelId) {
-      s.emit('channel:join', { channelId: activeChannelId });
-    }
-  });
-
-  s.on('reconnect_error', (err) => {
-    console.warn('[Socket] Reconnect error:', err.message);
+    // 'transport close' = proxy timeout — socket.io will auto-reconnect
   });
 
   return s;
 }
 
 // ── Main hook ─────────────────────────────────────────────────────────────────
-export function useSocket(): Socket | null {
+export function useSocket(): void {
   const { isAuthenticated, accessToken } = useAuthStore();
-  const socketRef = useRef<Socket | null>(null);
+  const initialised = useRef(false);
 
-  // ── (Re)create socket when auth changes ────────────────────────────────────
+  // (Re)create socket when auth changes
   useEffect(() => {
     if (!isAuthenticated || !accessToken) {
       if (socket) {
@@ -89,63 +128,46 @@ export function useSocket(): Socket | null {
         socket.disconnect();
         socket = null;
       }
-      socketRef.current = null;
       return;
     }
 
-    // Already alive — reuse
-    if (socket?.connected) {
-      socketRef.current = socket;
+    if (socket?.connected && !initialised.current) {
+      initialised.current = true;
       return;
     }
 
-    socket = createSocket(accessToken);
-    socketRef.current = socket;
-
-    return () => {
-      // Don't disconnect on unmount — socket is a singleton across routes
-    };
+    if (!socket) {
+      socket = createSocket(accessToken);
+      initialised.current = true;
+    }
   }, [isAuthenticated, accessToken]);
 
-  // ── Page Visibility API — reconnect when user returns to tab ───────────────
+  // Page visible → reconnect if dropped
   useEffect(() => {
     if (!isAuthenticated) return;
-
-    const handleVisibilityChange = () => {
+    const onVisible = () => {
       if (document.visibilityState !== 'visible') return;
-      if (!socket) {
-        // No socket at all — create one fresh
-        const token = useAuthStore.getState().accessToken;
-        if (token) { socket = createSocket(token); socketRef.current = socket; }
-      } else if (!socket.connected) {
-        // Socket exists but disconnected — just reconnect (preserves all listeners)
-        console.log('[Socket] 👁 Tab visible — reconnecting existing socket...');
-        socket.connect();
+      if (socket && !socket.connected) socket.connect();
+      else if (!socket) {
+        const t = useAuthStore.getState().accessToken;
+        if (t) socket = createSocket(t);
       }
     };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, [isAuthenticated]);
 
-  // ── Online/offline events — reconnect when network returns ─────────────────
+  // Network online → reconnect
   useEffect(() => {
     if (!isAuthenticated) return;
-
-    const handleOnline = () => {
-      console.log('[Socket] 🌐 Network online');
-      if (!socket) {
-        const token = useAuthStore.getState().accessToken;
-        if (token) { socket = createSocket(token); socketRef.current = socket; }
-      } else if (!socket.connected) {
-        // Reuse existing socket — all listeners stay intact
-        socket.connect();
+    const onOnline = () => {
+      if (socket && !socket.connected) socket.connect();
+      else if (!socket) {
+        const t = useAuthStore.getState().accessToken;
+        if (t) socket = createSocket(t);
       }
     };
-
-    window.addEventListener('online', handleOnline);
-    return () => window.removeEventListener('online', handleOnline);
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
   }, [isAuthenticated]);
-
-  return socketRef.current;
 }
