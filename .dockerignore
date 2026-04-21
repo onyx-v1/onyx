@@ -1,0 +1,26 @@
+# Source files never needed in Docker
+**/node_modules
+**/.git
+**/.gitignore
+
+# Local dev artifacts
+**/dist
+**/.env
+**/.env.*
+**/*.log
+
+# Editor noise
+**/.vscode
+**/.idea
+**/*.DS_Store
+
+# Test files
+**/__tests__
+**/*.test.ts
+**/*.spec.ts
+**/*.test.tsx
+**/*.spec.tsx
+
+# Docs
+**/README*
+**/CHANGELOG*
