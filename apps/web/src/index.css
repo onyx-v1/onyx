@@ -341,3 +341,38 @@
   border-left: 2px solid transparent;
   animation: msg-flash-kf 2.5s ease-out forwards !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE — touch device overrides
+   Detected by JS (useIsMobile) and applied via .is-mobile class on <html>
+   or inline styles. These CSS rules add extra polish for pointer:coarse.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Drawer backdrop fade */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* On touch devices: enlarge channel item tap targets */
+@media (pointer: coarse) {
+  .channel-item {
+    padding: 10px 12px;
+    min-height: 44px;
+  }
+
+  /* Hide hover-only scrollbars on touch */
+  ::-webkit-scrollbar { width: 0; height: 0; }
+
+  /* Disable hover highlight on channel items — no hover on touch */
+  .channel-item:hover:not(.active) {
+    background: transparent;
+    color: var(--color-muted);
+  }
+
+  /* User profile bar: larger touch zone */
+  .user-profile-bar {
+    padding: 14px 12px;
+    min-height: 60px;
+  }
+}

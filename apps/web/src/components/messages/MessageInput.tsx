@@ -3,6 +3,7 @@ import { Send, X, CornerUpLeft, AtSign } from 'lucide-react';
 import { Message } from '@onyx/types';
 import { getSocket } from '../../hooks/useSocket';
 import { useMembersStore, Member } from '../../stores/membersStore';
+import { useMobileCtx } from '../../context/MobileContext';
 import { Avatar } from '../ui/Avatar';
 
 interface Props {
@@ -17,6 +18,7 @@ const MAX_LENGTH = 2000;
 const EVERYONE: Member = { id: '__everyone__', username: 'everyone', displayName: 'Everyone (notify all)' };
 
 export function MessageInput({ channelId, replyTo, onCancelReply }: Props) {
+  const { isMobile } = useMobileCtx();
   const [hasContent,    setHasContent]    = useState(false);
   const [mentionQuery,  setMentionQuery]  = useState<string | null>(null); // null = closed
   const [mentionIndex,  setMentionIndex]  = useState(0);
@@ -249,8 +251,14 @@ export function MessageInput({ channelId, replyTo, onCancelReply }: Props) {
         </div>
       )}
 
-      {/* ── Input box ────────────────────────────────────────────────── */}
-      <div className="message-input-box">
+      {/* ── Input box ─────────────────────────────────────────────── */}
+      <div
+        className="message-input-box"
+        style={isMobile ? {
+          // iOS: ensure input row stays above the virtual keyboard
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        } : undefined}
+      >
         <textarea
           ref={textareaRef}
           onChange={handleInput}
@@ -272,19 +280,24 @@ export function MessageInput({ channelId, replyTo, onCancelReply }: Props) {
           </span>
         )}
 
+        {/* Send button — 44×44 on mobile per HIG touch target guidelines */}
         <button
+          type="button"
           onClick={handleSend}
           disabled={!hasContent}
           title="Send (Enter)"
           style={{
-            width: 34, height: 34, borderRadius: '50%',
+            width:  isMobile ? 44 : 34,
+            height: isMobile ? 44 : 34,
+            borderRadius: '50%',
             background: hasContent ? 'var(--color-accent)' : 'rgba(255,255,255,0.06)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             flexShrink: 0, transition: 'background 0.15s',
             cursor: hasContent ? 'pointer' : 'default',
+            border: 'none',
           }}
         >
-          <Send size={15} style={{ color: hasContent ? '#fff' : 'var(--color-subtle)' }} />
+          <Send size={isMobile ? 17 : 15} style={{ color: hasContent ? '#fff' : 'var(--color-subtle)' }} />
         </button>
       </div>
     </div>

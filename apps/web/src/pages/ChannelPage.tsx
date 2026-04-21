@@ -1,21 +1,21 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, Navigate } from 'react-router-dom';
+import { useParams, Navigate, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Hash, Menu, Search } from 'lucide-react';
 import { useChannelStore } from '../stores/channelStore';
 import { useMessages } from '../hooks/useMessages';
+import { useMobileCtx } from '../context/MobileContext';
 import { MessageList } from '../components/messages/MessageList';
 import { MessageInput } from '../components/messages/MessageInput';
 import { MessageSelectionBar } from '../components/messages/MessageSelectionBar';
 import { TypingIndicator } from '../components/messages/TypingIndicator';
 import { useSelectionStore } from '../stores/selectionStore';
 import { Message } from '@onyx/types';
-import { Hash } from 'lucide-react';
 
-/* ── Route shell — guards channelId before rendering view ────────────── */
+/* ── Route guard ─────────────────────────────────────────────────────── */
 export function ChannelPage() {
-  const { channelId } = useParams<{ channelId: string }>();
+  const { channelId }              = useParams<{ channelId: string }>();
   const { setActiveChannel, markRead } = useChannelStore();
 
-  // Sync active channel + mark read on navigation
   useEffect(() => {
     if (!channelId) return;
     setActiveChannel(channelId);
@@ -23,55 +23,96 @@ export function ChannelPage() {
   }, [channelId]);
 
   if (!channelId) return <Navigate to="/" replace />;
-  // key prop unmounts/remounts ChannelView when channel changes,
-  // resetting all local state (reply, scroll position, etc.)
   return <ChannelView key={channelId} channelId={channelId} />;
 }
 
-/* ── Channel view — channelId is guaranteed truthy here ─────────────── */
+/* ── Channel view ────────────────────────────────────────────────────── */
 function ChannelView({ channelId }: { channelId: string }) {
-  const { channels } = useChannelStore();
-  const { clearSelection } = useSelectionStore();
-  const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const { channels }               = useChannelStore();
+  const { clearSelection }         = useSelectionStore();
+  const { isMobile, openDrawer }   = useMobileCtx();
+  const navigate                   = useNavigate();
+  const [replyTo, setReplyTo]      = useState<Message | null>(null);
   const { messages, hasMore, isLoading, loadMore, error } = useMessages(channelId);
 
-  // Memoised channel lookup — avoids scanning array on every render
   const channel = useMemo(
     () => channels.find((c) => c.id === channelId),
     [channels, channelId],
   );
 
-  // Clear selection when channel changes
   useEffect(() => { clearSelection(); }, [channelId]);
 
-  // Stable callbacks — prevent MessageList from re-rendering on unrelated state changes
-  const handleReply  = useCallback((msg: Message) => setReplyTo(msg), []);
-  const cancelReply  = useCallback(() => setReplyTo(null), []);
+  const handleReply = useCallback((msg: Message) => setReplyTo(msg), []);
+  const cancelReply = useCallback(() => setReplyTo(null), []);
 
   return (
-    <div className="flex flex-col h-full" style={{ animation: 'channel-enter 0.18s ease-out' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
 
-      {/* Scrollable message area */}
-      <div className="flex-1 overflow-hidden flex flex-col">
-        {error ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-2">
-            <p style={{ fontSize: 14, color: 'var(--color-danger)' }}>Failed to load messages.</p>
-            <button
-              onClick={loadMore}
-              className="btn-ghost"
-              style={{ fontSize: 13, color: 'var(--color-accent)' }}
+      {/* ── Mobile top bar (replaces desktop Header) ──────────────── */}
+      {isMobile && (
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '0 12px',
+            height: 52,
+            flexShrink: 0,
+            background: 'var(--color-base)',
+            borderBottom: '1px solid var(--color-border)',
+          }}
+        >
+          {/* Hamburger — open sidebar drawer */}
+          <button
+            onClick={openDrawer}
+            title="Channels"
+            style={{
+              width: 36, height: 36, borderRadius: 8,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(255,255,255,0.06)',
+              color: 'var(--color-muted)',
+            }}
+          >
+            <Menu size={18} />
+          </button>
+
+          {/* Channel name */}
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+            <span style={{ color: 'var(--color-muted)', fontSize: 16 }}>
+              {channel?.type === 'VOICE' ? '🔊' : '#'}
+            </span>
+            <span
+              style={{
+                fontSize: 15, fontWeight: 700,
+                color: 'var(--color-primary)',
+                overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+              }}
             >
+              {channel?.name ?? '…'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Message area ──────────────────────────────────────────── */}
+      <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        {error ? (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <p style={{ fontSize: 14, color: 'var(--color-danger)' }}>Failed to load messages.</p>
+            <button onClick={loadMore} className="btn-ghost" style={{ fontSize: 13, color: 'var(--color-accent)' }}>
               Retry
             </button>
           </div>
         ) : messages.length === 0 && !isLoading ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-3 px-8">
-            <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center">
-              <Hash size={28} className="text-accent" />
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '0 32px' }}>
+            <div style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(139,124,248,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Hash size={24} style={{ color: 'var(--color-accent)' }} />
             </div>
-            <div className="text-center">
-              <h3 className="text-lg font-semibold text-primary">Welcome to #{channel?.name}</h3>
-              <p className="text-base text-muted mt-1">This is the beginning of the channel. Say something!</p>
+            <div style={{ textAlign: 'center' }}>
+              <h3 style={{ fontSize: 17, fontWeight: 700, color: 'var(--color-primary)', margin: 0 }}>
+                Welcome to #{channel?.name}
+              </h3>
+              <p style={{ fontSize: 14, color: 'var(--color-muted)', marginTop: 4 }}>
+                This is the beginning of the channel. Say something!
+              </p>
             </div>
           </div>
         ) : (
@@ -85,7 +126,7 @@ function ChannelView({ channelId }: { channelId: string }) {
         )}
       </div>
 
-      {/* Typing + input + selection bar */}
+      {/* ── Input area ────────────────────────────────────────────── */}
       <TypingIndicator channelId={channelId} />
       <div style={{ position: 'relative' }}>
         <MessageSelectionBar channelId={channelId} />

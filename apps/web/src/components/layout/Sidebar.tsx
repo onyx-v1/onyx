@@ -5,6 +5,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { usePresenceStore, selectIsOnline } from '../../stores/presenceStore';
 import { useVoiceStore } from '../../stores/voiceStore';
 import { useVoice } from '../../hooks/useVoice';
+import { useMobileCtx } from '../../context/MobileContext';
 import { ChannelSection } from '../channels/ChannelSection';
 import { Avatar } from '../ui/Avatar';
 import { ConnectionStatus } from '../ui/ConnectionStatus';
@@ -12,16 +13,18 @@ import { AvatarUploadModal } from '../ui/AvatarUploadModal';
 import { useState } from 'react';
 
 export function Sidebar() {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate     = useNavigate();
+  const location     = useLocation();
+  const { isMobile, closeDrawer } = useMobileCtx();
   const [showAvatarModal, setShowAvatarModal] = useState(false);
+
   const { channels, activeChannelId, setActiveChannel, communityName } = useChannelStore();
   const { user, logout } = useAuthStore();
-  const isUserOnline    = usePresenceStore(selectIsOnline(user?.id ?? ''));
+  const isUserOnline = usePresenceStore(selectIsOnline(user?.id ?? ''));
   const { isConnected: inVoice } = useVoiceStore();
   const { leaveVoice } = useVoice();
 
-  const textChannels = channels.filter((c) => c.type === 'TEXT');
+  const textChannels  = channels.filter((c) => c.type === 'TEXT');
   const voiceChannels = channels.filter((c) => c.type === 'VOICE');
 
   const activeId = (() => {
@@ -32,88 +35,96 @@ export function Sidebar() {
   const handleChannelClick = (channelId: string, type: 'TEXT' | 'VOICE') => {
     setActiveChannel(channelId);
     navigate(type === 'TEXT' ? `/channel/${channelId}` : `/voice/${channelId}`);
+    if (isMobile) closeDrawer(); // close drawer on channel tap
   };
 
   return (
     <>
-    <aside className="app-sidebar">
-      {/* Community name */}
-      <div className="px-4 py-4 border-b border-white/5">
-        <span className="text-xs font-semibold text-muted uppercase tracking-widest">{communityName}</span>
-      </div>
-
-      {/* Channels */}
-      <div className="flex-1 overflow-y-auto py-2 px-2">
-        <ChannelSection
-          label="Text Channels"
-          channels={textChannels}
-          activeId={activeId}
-          onChannelClick={(id) => handleChannelClick(id, 'TEXT')}
-        />
-        <ChannelSection
-          label="Voice Channels"
-          channels={voiceChannels}
-          activeId={activeId}
-          onChannelClick={(id) => handleChannelClick(id, 'VOICE')}
-        />
-      </div>
-
-      {/* Active voice indicator */}
-      {inVoice && (
-        <div className="mx-2 mb-1 px-3 py-2 bg-online/10 rounded-lg flex items-center justify-between text-xs">
-          <span className="text-online font-medium">🎙 In Voice</span>
-          <button onClick={leaveVoice} className="text-danger hover:text-danger/80 transition-colors">
-            Leave
-          </button>
+      {/* On mobile the sidebar renders INSIDE the drawer — no fixed positioning — */}
+      <aside
+        style={isMobile ? {
+          display: 'flex', flexDirection: 'column',
+          flex: 1, minHeight: 0,
+          width: '100%',
+        } : undefined}
+        className={isMobile ? undefined : 'app-sidebar'}
+      >
+        {/* Community name */}
+        <div className="px-4 py-4 border-b border-white/5">
+          <span className="text-xs font-semibold text-muted uppercase tracking-widest">{communityName}</span>
         </div>
-      )}
 
-      {/* Connection status + User profile bar */}
-      <div className="p-0">
-        <ConnectionStatus />
-        <div className="user-profile-bar">
-          <div
-            className="relative flex-shrink-0"
-            title="Click to change avatar"
-            style={{ cursor: 'pointer' }}
-            onClick={() => setShowAvatarModal(true)}
-          >
-            <Avatar
-              displayName={user?.displayName ?? ''}
-              avatarUrl={user?.avatarUrl}
-              size="sm"
-            />
-            <span
-              className={`online-dot absolute -bottom-0.5 -right-0.5 ${isUserOnline ? 'is-online' : 'is-offline'}`}
-            />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-primary truncate">{user?.displayName}</p>
-            <p className="text-xs text-muted truncate">@{user?.username}</p>
-          </div>
-          <div className="flex items-center gap-1">
-            {user?.role === 'ADMIN' && (
-              <button
-                onClick={() => navigate('/admin')}
-                className="btn-ghost p-1 rounded"
-                title="Admin Panel"
-              >
-                <Shield size={14} className="text-accent" />
-              </button>
-            )}
-            <button
-              onClick={logout}
-              className="btn-ghost p-1 rounded"
-              title="Sign out"
-            >
-              <Settings size={14} className="text-muted" />
+        {/* Channels */}
+        <div className="flex-1 overflow-y-auto py-2 px-2">
+          <ChannelSection
+            label="Text Channels"
+            channels={textChannels}
+            activeId={activeId}
+            onChannelClick={(id) => handleChannelClick(id, 'TEXT')}
+          />
+          <ChannelSection
+            label="Voice Channels"
+            channels={voiceChannels}
+            activeId={activeId}
+            onChannelClick={(id) => handleChannelClick(id, 'VOICE')}
+          />
+        </div>
+
+        {/* Active voice indicator */}
+        {inVoice && (
+          <div className="mx-2 mb-1 px-3 py-2 bg-online/10 rounded-lg flex items-center justify-between text-xs">
+            <span className="text-online font-medium">🎙 In Voice</span>
+            <button onClick={leaveVoice} className="text-danger hover:text-danger/80 transition-colors">
+              Leave
             </button>
           </div>
+        )}
+
+        {/* Connection status + user profile bar */}
+        <div className="p-0">
+          <ConnectionStatus />
+          <div className="user-profile-bar">
+            <div
+              className="relative flex-shrink-0"
+              title="Click to change avatar"
+              style={{ cursor: 'pointer' }}
+              onClick={() => setShowAvatarModal(true)}
+            >
+              <Avatar
+                displayName={user?.displayName ?? ''}
+                avatarUrl={user?.avatarUrl}
+                size="sm"
+              />
+              <span className={`online-dot absolute -bottom-0.5 -right-0.5 ${isUserOnline ? 'is-online' : 'is-offline'}`} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-primary truncate">{user?.displayName}</p>
+              <p className="text-xs text-muted truncate">@{user?.username}</p>
+            </div>
+            <div className="flex items-center gap-1">
+              {user?.role === 'ADMIN' && (
+                <button
+                  onClick={() => { navigate('/admin'); if (isMobile) closeDrawer(); }}
+                  className="btn-ghost p-1 rounded"
+                  title="Admin Panel"
+                >
+                  <Shield size={14} className="text-accent" />
+                </button>
+              )}
+              <button
+                onClick={logout}
+                className="btn-ghost p-1 rounded"
+                title="Sign out"
+              >
+                <Settings size={14} className="text-muted" />
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-    </aside>
-    {/* Avatar upload modal — rendered outside aside to avoid stacking context issues */}
-    {showAvatarModal && <AvatarUploadModal onClose={() => setShowAvatarModal(false)} />}
+      </aside>
+
+      {/* Avatar modal — outside aside to avoid stacking context issues */}
+      {showAvatarModal && <AvatarUploadModal onClose={() => setShowAvatarModal(false)} />}
     </>
   );
 }
