@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '../stores/authStore';
 import { useChannelStore } from '../stores/channelStore';
+import { useSocketStore } from '../stores/socketStore';
 
 // ── Singleton — survives re-renders ──────────────────────────────────────────
 let socket: Socket | null = null;
@@ -37,8 +38,9 @@ function createSocket(token: string): Socket {
 
   s.on('connect', () => {
     console.log('[Socket] ✅ Connected:', s.id);
+    // Notify all subscribers (useMessages, etc.) that socket is ready
+    useSocketStore.getState().setConnected();
     // Re-join the active channel after every (re)connection
-    // The server clears rooms when a client disconnects
     const { activeChannelId } = useChannelStore.getState();
     if (activeChannelId) {
       s.emit('channel:join', { channelId: activeChannelId });

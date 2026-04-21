@@ -1,6 +1,7 @@
 import { useEffect, useCallback } from 'react';
 import { useMessageStore } from '../stores/messageStore';
 import { useChannelStore } from '../stores/channelStore';
+import { useSocketStore } from '../stores/socketStore';
 import { getSocket } from './useSocket';
 import { WsEvents } from '@onyx/types';
 
@@ -8,11 +9,14 @@ export function useMessages(channelId: string) {
   const { messages, hasMore, loading, fetchHistory, addMessage, deleteMessage } = useMessageStore();
   const { markUnread, activeChannelId } = useChannelStore();
 
+  // Re-run the socket effect every time the socket (re)connects
+  const connectionId = useSocketStore((s) => s.connectionId);
+
   const channelMessages = messages.get(channelId) ?? [];
   const channelHasMore = hasMore.get(channelId) ?? true;
   const isLoading = loading.get(channelId) ?? false;
 
-  // Initial load
+  // Initial history load
   useEffect(() => {
     if (!channelId) return;
     if (!messages.has(channelId)) {
@@ -20,12 +24,17 @@ export function useMessages(channelId: string) {
     }
   }, [channelId]);
 
-  // Subscribe to real-time events for this channel
+  // Socket listeners — re-runs whenever channelId changes OR socket connects
+  // connectionId changes every time the socket connects (initial + every reconnect)
+  // This guarantees we never miss setting up listeners even if socket wasn't
+  // ready when the component first mounted.
   useEffect(() => {
-    const socket = getSocket();
-    if (!socket || !channelId) return;
+    if (!channelId) return;
 
-    // Join the channel room (also done in useSocket on reconnect, but belt-and-braces)
+    const socket = getSocket();
+    if (!socket) return; // socket not created yet — will retry when connectionId changes
+
+    // Join channel room on server
     socket.emit('channel:join', { channelId });
 
     const handleNewMessage = ({ message }: WsEvents.MessageNew) => {
@@ -39,22 +48,15 @@ export function useMessages(channelId: string) {
       if (cId === channelId) deleteMessage(channelId, messageId);
     };
 
-    // Re-join the room after every reconnect — server clears rooms on disconnect
-    const handleReconnect = () => {
-      socket.emit('channel:join', { channelId });
-    };
-
     socket.on('message:new', handleNewMessage);
     socket.on('message:deleted', handleDeleted);
-    socket.on('connect', handleReconnect); // fires on initial connect AND every reconnect
 
     return () => {
-      socket.emit('channel:leave', { channelId });
       socket.off('message:new', handleNewMessage);
       socket.off('message:deleted', handleDeleted);
-      socket.off('connect', handleReconnect);
+      // Note: don't leave channel here — handled by channel switch
     };
-  }, [channelId]);
+  }, [channelId, connectionId]); // ← connectionId is the key dependency
 
   const loadMore = useCallback(() => {
     if (!channelHasMore || isLoading) return;
