@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Copy, Trash2, X, Check, ChevronDown } from 'lucide-react';
+import { Copy, Trash2, X, Check } from 'lucide-react';
 import { useSelectionStore } from '../../stores/selectionStore';
 import { useMessageStore } from '../../stores/messageStore';
+import { useDeletePrefsStore } from '../../stores/deletePrefsStore';
 import { useAuthStore } from '../../stores/authStore';
 import { getSocket } from '../../hooks/useSocket';
 import { isPinEvent } from '../../stores/messageStore';
@@ -14,6 +15,7 @@ export function MessageSelectionBar({ channelId }: Props) {
   const { active, selectedIds, clearSelection } = useSelectionStore();
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'ADMIN';
+  const { openDeleteConfirm, showToast } = useDeletePrefsStore();
 
   const [copied, setCopied] = useState(false);
 
@@ -22,7 +24,6 @@ export function MessageSelectionBar({ channelId }: Props) {
   const count = selectedIds.size;
 
   const handleCopy = () => {
-    // Pull the messages from store in order, filter to selected ones
     const { messages } = useMessageStore.getState();
     const channelMsgs = messages.get(channelId) ?? [];
     const selected = channelMsgs
@@ -45,7 +46,6 @@ export function MessageSelectionBar({ channelId }: Props) {
     const { messages } = useMessageStore.getState();
     const channelMsgs = messages.get(channelId) ?? [];
 
-    // Determine which selected messages this user can actually delete
     const deletable = channelMsgs.filter((m) => {
       if (isPinEvent(m)) return false;
       if (!selectedIds.has(m.id)) return false;
@@ -55,18 +55,17 @@ export function MessageSelectionBar({ channelId }: Props) {
 
     if (!deletable.length) return;
 
-    const skip = count - deletable.length;
-    const msg = skip > 0
-      ? `Delete ${deletable.length} message${deletable.length > 1 ? 's' : ''}? (${skip} skipped — not yours)`
-      : `Delete ${deletable.length} message${deletable.length > 1 ? 's' : ''}?`;
-
-    if (!window.confirm(msg)) return;
-
-    const socket = getSocket();
-    for (const m of deletable) {
-      socket?.emit('message:delete', { messageId: m.id });
-    }
-    clearSelection();
+    // Use the unified confirm modal (handles don't-ask-again + bulk feedback in one pass)
+    openDeleteConfirm(deletable.length, (showFeedback) => {
+      const socket = getSocket();
+      for (const m of deletable) {
+        socket?.emit('message:delete', { messageId: m.id });
+      }
+      clearSelection();
+      if (showFeedback) {
+        showToast(`${deletable.length} message${deletable.length > 1 ? 's' : ''} deleted`);
+      }
+    });
   };
 
   return (
@@ -108,7 +107,6 @@ export function MessageSelectionBar({ channelId }: Props) {
 
       {/* Right — actions */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        {/* Copy */}
         <button
           onClick={handleCopy}
           style={{
@@ -125,7 +123,6 @@ export function MessageSelectionBar({ channelId }: Props) {
           {copied ? 'Copied!' : 'Copy'}
         </button>
 
-        {/* Delete — shown if admin OR user has own messages in selection */}
         <button
           onClick={handleDelete}
           style={{

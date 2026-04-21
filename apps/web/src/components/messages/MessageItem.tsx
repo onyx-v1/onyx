@@ -4,6 +4,7 @@ import { format, isToday, isYesterday } from 'date-fns';
 import { Message } from '@onyx/types';
 import { useAuthStore } from '../../stores/authStore';
 import { useSelectionStore } from '../../stores/selectionStore';
+import { useDeletePrefsStore } from '../../stores/deletePrefsStore';
 import { getSocket } from '../../hooks/useSocket';
 import { Avatar } from '../ui/Avatar';
 
@@ -54,6 +55,7 @@ function renderContent(content: string, currentDisplayName?: string) {
 export const MessageItem = memo(function MessageItem({ message, compact, onReply, isHighlighted }: Props) {
   const { user } = useAuthStore();
   const { active: selectionActive, selectedIds, enterSelection, toggleMessage } = useSelectionStore();
+  const openDeleteConfirm = useDeletePrefsStore((s) => s.openDeleteConfirm);
   const [hovered, setHovered] = useState(false);
   const [copied,  setCopied]  = useState(false);
 
@@ -71,8 +73,9 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
   );
 
   const handleDelete = () => {
-    if (!window.confirm('Delete this message?')) return;
-    getSocket()?.emit('message:delete', { messageId: message.id });
+    openDeleteConfirm(1, () => {
+      getSocket()?.emit('message:delete', { messageId: message.id });
+    });
   };
 
   const handlePin = () => {

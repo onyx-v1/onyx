@@ -8,6 +8,8 @@ import { useUnreadTracker } from '../../hooks/useUnreadTracker';
 import { useChannelStore } from '../../stores/channelStore';
 import { useMembersStore } from '../../stores/membersStore';
 import { MentionToasts } from '../ui/MentionToasts';
+import { DeleteConfirmModal } from '../ui/DeleteConfirmModal';
+import { DeleteToast } from '../ui/DeleteToast';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 
@@ -54,6 +56,9 @@ export function AppShell() {
       </main>
       {/* Global mention toast stack */}
       <MentionToasts />
+      {/* Delete confirmation modal + feedback toast */}
+      <DeleteConfirmModal />
+      <DeleteToast />
     </div>
   );
 }
