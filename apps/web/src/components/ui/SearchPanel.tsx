@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Search, X, Hash, Clock } from 'lucide-react';
 import { apiClient } from '../../api/client';
 import { useChannelStore } from '../../stores/channelStore';
@@ -44,8 +44,12 @@ export function SearchPanel() {
   const panelRef    = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navigate    = useNavigate();
-  const { channels, activeChannelId } = useChannelStore();
-  const activeChannel = channels.find((c) => c.id === activeChannelId);
+  const location    = useLocation();
+  const { channels } = useChannelStore();
+
+  // Always read channelId from the live URL — avoids stale store state
+  const urlChannelId   = location.pathname.match(/\/channel\/([^/]+)/)?.[1] ?? null;
+  const activeChannel  = channels.find((c) => c.id === urlChannelId);
 
   /* ── Debounced search ───────────────────────────────────────────── */
   const runSearch = useCallback(async (q: string, s: 'channel' | 'all') => {
@@ -53,7 +57,7 @@ export function SearchPanel() {
     setLoading(true);
     try {
       const params = new URLSearchParams({ q });
-      if (s === 'channel' && activeChannelId) params.set('channelId', activeChannelId);
+      if (s === 'channel' && urlChannelId) params.set('channelId', urlChannelId);
       const { data } = await apiClient.get<SearchResult[]>(`/messages/search?${params}`);
       setResults(data);
       setActiveIdx(0);
@@ -62,7 +66,7 @@ export function SearchPanel() {
     } finally {
       setLoading(false);
     }
-  }, [activeChannelId]);
+  }, [urlChannelId]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);

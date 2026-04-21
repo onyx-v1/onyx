@@ -4,6 +4,7 @@ import { useSocket, getSocket } from '../../hooks/useSocket';
 import { useSocketStore } from '../../stores/socketStore';
 import { usePresence } from '../../hooks/usePresence';
 import { useMentionNotifications } from '../../hooks/useMentionNotifications';
+import { useUnreadTracker } from '../../hooks/useUnreadTracker';
 import { useChannelStore } from '../../stores/channelStore';
 import { useMembersStore } from '../../stores/membersStore';
 import { MentionToasts } from '../ui/MentionToasts';
@@ -14,6 +15,7 @@ export function AppShell() {
   useSocket();
   usePresence();
   useMentionNotifications();
+  useUnreadTracker();
 
   const navigate          = useNavigate();
   const connectionId      = useSocketStore((s) => s.connectionId);

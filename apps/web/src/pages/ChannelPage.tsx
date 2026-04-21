@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Navigate } from 'react-router-dom';
 import { useChannelStore } from '../stores/channelStore';
 import { useMessages } from '../hooks/useMessages';
@@ -10,10 +10,16 @@ import { Hash } from 'lucide-react';
 
 export function ChannelPage() {
   const { channelId } = useParams<{ channelId: string }>();
+  const { setActiveChannel, markRead } = useChannelStore();
 
-  // Guard BEFORE any hook that depends on channelId
+  // Sync store whenever URL channelId changes (e.g. navigating from search results)
+  useEffect(() => {
+    if (!channelId) return;
+    setActiveChannel(channelId);
+    markRead(channelId);
+  }, [channelId]);
+
   if (!channelId) return <Navigate to="/" replace />;
-
   return <ChannelView key={channelId} channelId={channelId} />;
 }
 
