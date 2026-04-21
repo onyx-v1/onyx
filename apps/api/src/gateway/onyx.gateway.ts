@@ -12,7 +12,6 @@ import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
-import type { WsEvents } from '@onyx/types';
 
 interface AuthSocket extends Socket {
   user: { id: string; username: string; displayName: string; role: string };
@@ -33,13 +32,8 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   @WebSocketServer()
   server: Server;
 
-  // Presence: userId → Set<socketId>
   private onlineUsers = new Map<string, Set<string>>();
-
-  // Voice rooms: channelId → Map<userId, socketId>
   private voiceRooms = new Map<string, Map<string, string>>();
-
-  // Typing: channelId → Map<userId, { displayName, timer }>
   private typingState = new Map<string, Map<string, { displayName: string; timer: NodeJS.Timeout }>>();
 
   constructor(
@@ -49,7 +43,6 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   ) {}
 
   afterInit(server: Server) {
-    // Socket-level JWT auth middleware
     server.use(async (socket: any, next) => {
       try {
         const token =
@@ -86,14 +79,13 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     this.onlineUsers.get(id).add(client.id);
 
     if (wasOffline) {
-      this.server.emit('presence:update', { userId: id, online: true } satisfies WsEvents.PresenceUpdate);
+      this.server.emit('presence:update', { userId: id, online: true });
     }
 
-    // Send current online list to the new client
     const onlineUserIds = [...this.onlineUsers.entries()]
       .filter(([, s]) => s.size > 0)
       .map(([uid]) => uid);
-    client.emit('presence:init', { onlineUserIds } satisfies WsEvents.PresenceInit);
+    client.emit('presence:init', { onlineUserIds });
 
     console.log(`[WS] Connected: @${client.user.username} (${client.id})`);
   }
@@ -102,25 +94,22 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     if (!client.user) return;
     const { id } = client.user;
 
-    // Presence
     if (this.onlineUsers.has(id)) {
       this.onlineUsers.get(id).delete(client.id);
       if (this.onlineUsers.get(id).size === 0) {
         this.onlineUsers.delete(id);
-        this.server.emit('presence:update', { userId: id, online: false } satisfies WsEvents.PresenceUpdate);
+        this.server.emit('presence:update', { userId: id, online: false });
       }
     }
 
-    // Voice cleanup
     for (const [channelId, room] of this.voiceRooms.entries()) {
       if (room.has(id)) {
         room.delete(id);
-        client.to(`voice:${channelId}`).emit('voice:peer_left', { channelId, peerId: id } satisfies WsEvents.VoicePeerLeft);
+        client.to(`voice:${channelId}`).emit('voice:peer_left', { channelId, peerId: id });
         if (room.size === 0) this.voiceRooms.delete(channelId);
       }
     }
 
-    // Typing cleanup
     for (const [channelId, typers] of this.typingState.entries()) {
       if (typers.has(id)) {
         clearTimeout(typers.get(id).timer);
@@ -132,22 +121,18 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     console.log(`[WS] Disconnected: @${client.user.username}`);
   }
 
-  // ─── Channel Rooms ─────────────────────────────────────────────────────────
-
   @SubscribeMessage('channel:join')
-  handleChannelJoin(@ConnectedSocket() client: AuthSocket, @MessageBody() data: WsEvents.ChannelJoin) {
+  handleChannelJoin(@ConnectedSocket() client: AuthSocket, @MessageBody() data: { channelId: string }) {
     client.join(`channel:${data.channelId}`);
   }
 
   @SubscribeMessage('channel:leave')
-  handleChannelLeave(@ConnectedSocket() client: AuthSocket, @MessageBody() data: WsEvents.ChannelLeave) {
+  handleChannelLeave(@ConnectedSocket() client: AuthSocket, @MessageBody() data: { channelId: string }) {
     client.leave(`channel:${data.channelId}`);
   }
 
-  // ─── Messaging ─────────────────────────────────────────────────────────────
-
   @SubscribeMessage('message:send')
-  async handleMessageSend(@ConnectedSocket() client: AuthSocket, @MessageBody() data: WsEvents.MessageSend) {
+  async handleMessageSend(@ConnectedSocket() client: AuthSocket, @MessageBody() data: { channelId: string; content: string; replyToId?: string }) {
     if (!data.content?.trim()) return;
 
     const message = await this.prisma.message.create({
@@ -160,12 +145,12 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       include: MSG_INCLUDE,
     });
 
-    this.server.to(`channel:${data.channelId}`).emit('message:new', { message } satisfies WsEvents.MessageNew);
+    this.server.to(`channel:${data.channelId}`).emit('message:new', { message });
     this.stopTyping(data.channelId, client.user.id);
   }
 
   @SubscribeMessage('message:delete')
-  async handleMessageDelete(@ConnectedSocket() client: AuthSocket, @MessageBody() data: WsEvents.MessageDelete) {
+  async handleMessageDelete(@ConnectedSocket() client: AuthSocket, @MessageBody() data: { messageId: string }) {
     const message = await this.prisma.message.findUnique({ where: { id: data.messageId } });
     if (!message) return;
     if (client.user.role !== 'ADMIN' && message.authorId !== client.user.id) return;
@@ -177,13 +162,11 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
     this.server
       .to(`channel:${message.channelId}`)
-      .emit('message:deleted', { messageId: data.messageId, channelId: message.channelId } satisfies WsEvents.MessageDeleted);
+      .emit('message:deleted', { messageId: data.messageId, channelId: message.channelId });
   }
 
-  // ─── Typing Indicators ──────────────────────────────────────────────────────
-
   @SubscribeMessage('typing:start')
-  handleTypingStart(@ConnectedSocket() client: AuthSocket, @MessageBody() data: WsEvents.TypingStart) {
+  handleTypingStart(@ConnectedSocket() client: AuthSocket, @MessageBody() data: { channelId: string }) {
     const { channelId } = data;
     if (!this.typingState.has(channelId)) this.typingState.set(channelId, new Map());
 
@@ -196,19 +179,16 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   }
 
   @SubscribeMessage('typing:stop')
-  handleTypingStop(@ConnectedSocket() client: AuthSocket, @MessageBody() data: WsEvents.TypingStop) {
+  handleTypingStop(@ConnectedSocket() client: AuthSocket, @MessageBody() data: { channelId: string }) {
     this.stopTyping(data.channelId, client.user.id);
   }
 
-  // ─── Voice / WebRTC ────────────────────────────────────────────────────────
-
   @SubscribeMessage('voice:join')
-  async handleVoiceJoin(@ConnectedSocket() client: AuthSocket, @MessageBody() data: WsEvents.VoiceJoin) {
+  async handleVoiceJoin(@ConnectedSocket() client: AuthSocket, @MessageBody() data: { channelId: string }) {
     const { channelId } = data;
     if (!this.voiceRooms.has(channelId)) this.voiceRooms.set(channelId, new Map());
     const room = this.voiceRooms.get(channelId);
 
-    // Build peer list before adding self
     const peerIds = [...room.keys()];
     const peerUsers = await this.prisma.user.findMany({
       where: { id: { in: peerIds } },
@@ -218,33 +198,30 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     client.join(`voice:${channelId}`);
     room.set(client.user.id, client.id);
 
-    // Tell the new joiner who's in the room
     client.emit('voice:peers', {
       channelId,
       peers: peerUsers.map((u) => ({ id: u.id, displayName: u.displayName, isMuted: false })),
-    } satisfies WsEvents.VoicePeers);
+    });
 
-    // Tell everyone else someone joined
     client.to(`voice:${channelId}`).emit('voice:peer_joined', {
       channelId,
       peer: { id: client.user.id, displayName: client.user.displayName },
-    } satisfies WsEvents.VoicePeerJoined);
+    });
   }
 
   @SubscribeMessage('voice:leave')
-  handleVoiceLeave(@ConnectedSocket() client: AuthSocket, @MessageBody() data: WsEvents.VoiceLeave) {
+  handleVoiceLeave(@ConnectedSocket() client: AuthSocket, @MessageBody() data: { channelId: string }) {
     const { channelId } = data;
     if (this.voiceRooms.has(channelId)) {
       this.voiceRooms.get(channelId).delete(client.user.id);
       if (this.voiceRooms.get(channelId).size === 0) this.voiceRooms.delete(channelId);
     }
     client.leave(`voice:${channelId}`);
-    client.to(`voice:${channelId}`).emit('voice:peer_left', { channelId, peerId: client.user.id } satisfies WsEvents.VoicePeerLeft);
+    client.to(`voice:${channelId}`).emit('voice:peer_left', { channelId, peerId: client.user.id });
   }
 
   @SubscribeMessage('voice:signal')
-  handleVoiceSignal(@ConnectedSocket() client: AuthSocket, @MessageBody() data: WsEvents.VoiceSignal) {
-    // Find target socket and forward signal directly
+  handleVoiceSignal(@ConnectedSocket() client: AuthSocket, @MessageBody() data: { type: string; to: string; channelId: string; data: unknown }) {
     const room = this.voiceRooms.get(data.channelId);
     if (!room) return;
     const targetSocketId = room.get(data.to);
@@ -254,10 +231,8 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       type: data.type,
       from: client.user.id,
       data: data.data,
-    } satisfies WsEvents.VoiceSignalReceived);
+    });
   }
-
-  // ─── Helpers ───────────────────────────────────────────────────────────────
 
   private stopTyping(channelId: string, userId: string) {
     const typers = this.typingState.get(channelId);
@@ -272,10 +247,9 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     const users = [...typers.entries()].map(([id, { displayName }]) => ({ id, displayName }));
     this.server
       .to(`channel:${channelId}`)
-      .emit('typing:update', { channelId, users } satisfies WsEvents.TypingUpdate);
+      .emit('typing:update', { channelId, users });
   }
 
-  // Public method for broadcasting channel updates (e.g. after admin creates channel)
   broadcastChannelUpdate(channels: any[]) {
     this.server.emit('channels:updated', { channels });
   }
