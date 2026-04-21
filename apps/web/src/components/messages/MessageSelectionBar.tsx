@@ -27,7 +27,7 @@ export function MessageSelectionBar({ channelId }: Props) {
     const { messages } = useMessageStore.getState();
     const channelMsgs = messages.get(channelId) ?? [];
     const selected = channelMsgs
-      .filter((m) => !isPinEvent(m) && selectedIds.has(m.id) && !m.deleted)
+      .filter((m) => !isPinEvent(m) && selectedIds.has(m.id))
       .map((m) => {
         const time = new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         return `[${time}] ${m.author.displayName}: ${m.content}`;
@@ -49,29 +49,20 @@ export function MessageSelectionBar({ channelId }: Props) {
     const deletable = channelMsgs.filter((m) => {
       if (isPinEvent(m)) return false;
       if (!selectedIds.has(m.id)) return false;
-      if (m.deleted) return false;
       return isAdmin || m.author.id === user?.id;
     });
 
     if (!deletable.length) return;
 
-    // Use the unified confirm modal (handles don't-ask-again + bulk feedback in one pass)
-    openDeleteConfirm(deletable.length, (showFeedback) => {
+    openDeleteConfirm(deletable.length, () => {
       const socket = getSocket();
-      const { removeMessage } = useMessageStore.getState();
-
       for (const m of deletable) {
-        if (m.deleted) {
-          // Already deleted on server — just remove the placeholder locally
-          removeMessage(m.channelId, m.id);
-        } else {
-          socket?.emit('message:delete', { messageId: m.id });
-        }
+        socket?.emit('message:delete', { messageId: m.id });
       }
       clearSelection();
-      if (showFeedback) {
-        showToast(`${deletable.length} message${deletable.length > 1 ? 's' : ''} deleted`);
-      }
+      // Show toast — messages will disappear via socket event → removeMessage
+      const n = deletable.length;
+      showToast(`${n} message${n > 1 ? 's' : ''} deleted`);
     });
   };
 
@@ -123,7 +114,6 @@ export function MessageSelectionBar({ channelId }: Props) {
             border: '1px solid rgba(139,124,248,0.25)',
             cursor: 'pointer', fontSize: 13, fontWeight: 600,
             color: 'var(--color-accent)',
-            transition: 'background 0.15s',
           }}
         >
           {copied ? <Check size={14} /> : <Copy size={14} />}
@@ -139,7 +129,6 @@ export function MessageSelectionBar({ channelId }: Props) {
             border: '1px solid rgba(240,64,64,0.25)',
             cursor: 'pointer', fontSize: 13, fontWeight: 600,
             color: 'var(--color-danger)',
-            transition: 'background 0.15s',
           }}
         >
           <Trash2 size={14} />

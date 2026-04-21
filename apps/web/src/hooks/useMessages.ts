@@ -1,7 +1,6 @@
 import { useEffect, useCallback, useState, useMemo } from 'react';
 import { useMessageStore, isPinEvent } from '../stores/messageStore';
 import { useSocketStore } from '../stores/socketStore';
-import { useDeletePrefsStore } from '../stores/deletePrefsStore';
 import { getSocket } from './useSocket';
 import { WsEvents } from '@onyx/types';
 
@@ -10,7 +9,7 @@ export function useMessages(channelId: string) {
   const pinEvents  = useMessageStore((s) => s.pinEvents);
   const hasMore    = useMessageStore((s) => s.hasMore);
   const loading    = useMessageStore((s) => s.loading);
-  const { fetchHistory, deleteMessage, removeMessage } = useMessageStore();
+  const { fetchHistory, removeMessage } = useMessageStore();
   const connectionId = useSocketStore((s) => s.connectionId);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +35,7 @@ export function useMessages(channelId: string) {
     }
   }, [channelId]);
 
-  /* ── Socket listeners — re-runs on channelId change OR reconnect ── */
+  /* ── Socket listeners ────────────────────────────────────────────── */
   useEffect(() => {
     if (!channelId) return;
     const socket = getSocket();
@@ -44,31 +43,18 @@ export function useMessages(channelId: string) {
 
     socket.emit('channel:join', { channelId });
 
-    // message:new and message:pinned are handled globally by useUnreadTracker.
-    // Only handle deletes here (channel-scoped).
+    // Always physically remove — no "Message deleted" placeholder
     const handleDeleted = ({ messageId, channelId: cId }: WsEvents.MessageDeleted) => {
-      if (cId !== channelId) return;
-      // sessionFeedback: what user chose this session (overrides stored pref if set)
-      const { showDeleteFeedback, sessionFeedback } = useDeletePrefsStore.getState();
-      const showFeedback = sessionFeedback ?? showDeleteFeedback;
-      if (showFeedback) {
-        deleteMessage(channelId, messageId);  // shows "Message deleted" italic
-      } else {
-        removeMessage(channelId, messageId);  // completely removes, no trace
-      }
+      if (cId === channelId) removeMessage(channelId, messageId);
     };
 
     socket.on('message:deleted', handleDeleted);
-
-    return () => {
-      socket.off('message:deleted', handleDeleted);
-    };
+    return () => { socket.off('message:deleted', handleDeleted); };
   }, [channelId, connectionId]);
 
   /* ── Load more (older messages) ──────────────────────────────────── */
   const loadMore = useCallback(() => {
     if (!channelHasMore || isLoading) return;
-    // Use only real messages for the cursor (pin events are ephemeral)
     const oldest = channelMessages.find((m) => !isPinEvent(m));
     fetchHistory(channelId, oldest ? String(oldest.createdAt) : undefined)
       .catch(() => setError('Could not load older messages.'));

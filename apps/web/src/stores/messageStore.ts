@@ -58,7 +58,7 @@ export const useMessageStore = create<MessageState>((set, get) => ({
       if (before) params.before = before;
 
       const { data } = await apiClient.get(`/messages/channel/${channelId}`, { params });
-      const incoming: Message[] = data;
+      const incoming: Message[] = (data as Message[]).filter((m) => !m.deleted);
 
       set((s) => {
         const existing = s.messages.get(channelId) ?? [];

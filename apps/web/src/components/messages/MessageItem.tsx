@@ -1,11 +1,10 @@
 import { useState, memo } from 'react';
-import { Reply, Copy, Trash2, Check, Pin, X } from 'lucide-react';
+import { Reply, Copy, Trash2, Check, Pin } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { Message } from '@onyx/types';
 import { useAuthStore } from '../../stores/authStore';
 import { useSelectionStore } from '../../stores/selectionStore';
 import { useDeletePrefsStore } from '../../stores/deletePrefsStore';
-import { useMessageStore } from '../../stores/messageStore';
 import { getSocket } from '../../hooks/useSocket';
 import { Avatar } from '../ui/Avatar';
 
@@ -56,7 +55,7 @@ function renderContent(content: string, currentDisplayName?: string) {
 export const MessageItem = memo(function MessageItem({ message, compact, onReply, isHighlighted }: Props) {
   const { user } = useAuthStore();
   const { active: selectionActive, selectedIds, enterSelection, toggleMessage } = useSelectionStore();
-  const openDeleteConfirm = useDeletePrefsStore((s) => s.openDeleteConfirm);
+  const { openDeleteConfirm, showToast } = useDeletePrefsStore();
   const [hovered, setHovered] = useState(false);
   const [copied,  setCopied]  = useState(false);
 
@@ -67,21 +66,11 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
   const canDelete = isOwn || isAdmin;
   const date      = new Date(message.createdAt);
 
-  // Does this message mention me or @everyone?
-  const mentionsMe = !!user?.displayName && (
-    message.content.toLowerCase().includes('@everyone') ||
-    message.content.toLowerCase().includes(`@${user.displayName.toLowerCase()}`)
-  );
-
   const handleDelete = () => {
     openDeleteConfirm(1, () => {
       getSocket()?.emit('message:delete', { messageId: message.id });
+      showToast('Message deleted');
     });
-  };
-
-  /** Locally removes a deleted-placeholder row without a server call */
-  const handleDismiss = () => {
-    useMessageStore.getState().removeMessage(message.channelId, message.id);
   };
 
   const handlePin = () => {
@@ -99,9 +88,6 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
     onReply();
   };
 
-  // NOTE: deleted messages are NO LONGER an early return —
-  // they keep the full interactive shell (hover, selection) but
-  // render a placeholder body and a Dismiss-only toolbar.
 
   return (
     <div
@@ -207,7 +193,7 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
 
         {/* Content */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          {!message.deleted && !compact && (
+          {!compact && (
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 2 }}>
               <span
                 style={{
@@ -222,15 +208,9 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
               </span>
             </div>
           )}
-          {message.deleted ? (
-            <p style={{ fontSize: 13, color: 'var(--color-subtle)', fontStyle: 'italic', margin: 0, lineHeight: 1.6 }}>
-              Message deleted
-            </p>
-          ) : (
-            <p style={{ fontSize: 15, color: 'var(--color-primary)', lineHeight: 1.6, wordBreak: 'break-word', margin: 0 }}>
-              {renderContent(message.content, user?.displayName)}
-            </p>
-          )}
+          <p style={{ fontSize: 15, color: 'var(--color-primary)', lineHeight: 1.6, wordBreak: 'break-word', margin: 0 }}>
+            {renderContent(message.content, user?.displayName)}
+          </p>
         </div>
       </div>
 
@@ -264,47 +244,38 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
             zIndex: 10,
           }}
         >
-          {/* Select — always available */}
+          {/* Select */}
           <ActionBtn title="Select" onClick={() => enterSelection(message.id)}>
             <Check size={14} />
           </ActionBtn>
 
-          {message.deleted ? (
-            /* Deleted placeholder — only action is dismissing it from view */
-            <ActionBtn title="Dismiss" onClick={handleDismiss} danger>
-              <X size={14} />
+          {/* Reply */}
+          <ActionBtn title="Reply" onClick={handleReply}>
+            <Reply size={14} />
+          </ActionBtn>
+
+          {/* Copy */}
+          <ActionBtn title={copied ? 'Copied!' : 'Copy'} onClick={handleCopy}>
+            {copied
+              ? <Check size={14} style={{ color: 'var(--color-online)' }} />
+              : <Copy size={14} />}
+          </ActionBtn>
+
+          {/* Pin / Unpin — admin only */}
+          {isAdmin && (
+            <ActionBtn title={message.pinned ? 'Unpin' : 'Pin'} onClick={handlePin}>
+              <Pin size={14} style={{
+                transform: 'rotate(45deg)',
+                color: message.pinned ? 'var(--color-accent)' : undefined,
+              }} />
             </ActionBtn>
-          ) : (
-            <>
-              {/* Reply */}
-              <ActionBtn title="Reply" onClick={handleReply}>
-                <Reply size={14} />
-              </ActionBtn>
+          )}
 
-              {/* Copy */}
-              <ActionBtn title={copied ? 'Copied!' : 'Copy'} onClick={handleCopy}>
-                {copied
-                  ? <Check size={14} style={{ color: 'var(--color-online)' }} />
-                  : <Copy size={14} />}
-              </ActionBtn>
-
-              {/* Pin / Unpin — admin only */}
-              {isAdmin && (
-                <ActionBtn title={message.pinned ? 'Unpin' : 'Pin'} onClick={handlePin}>
-                  <Pin size={14} style={{
-                    transform: 'rotate(45deg)',
-                    color: message.pinned ? 'var(--color-accent)' : undefined,
-                  }} />
-                </ActionBtn>
-              )}
-
-              {/* Delete (own or admin) */}
-              {canDelete && (
-                <ActionBtn title="Delete" onClick={handleDelete} danger>
-                  <Trash2 size={14} />
-                </ActionBtn>
-              )}
-            </>
+          {/* Delete (own or admin) */}
+          {canDelete && (
+            <ActionBtn title="Delete" onClick={handleDelete} danger>
+              <Trash2 size={14} />
+            </ActionBtn>
           )}
         </div>
       )}
