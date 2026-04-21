@@ -1,5 +1,6 @@
-import { Search, Pin, Bell } from 'lucide-react';
+import { Pin, Bell } from 'lucide-react';
 import { useChannelStore } from '../../stores/channelStore';
+import { SearchPanel } from '../ui/SearchPanel';
 
 export function Header() {
   const { channels, activeChannelId, communityName } = useChannelStore();
@@ -7,7 +8,7 @@ export function Header() {
 
   return (
     <header className="app-header">
-      {/* Server name — matches sidebar width exactly */}
+      {/* Server name */}
       <div className="flex items-center gap-2 flex-shrink-0" style={{ width: 'var(--size-sidebar)' }}>
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-lg bg-accent flex items-center justify-center">
@@ -17,7 +18,7 @@ export function Header() {
         </div>
       </div>
 
-      {/* Channel name — in main panel area */}
+      {/* Channel name */}
       <div className="flex-1 flex items-center gap-2 pl-3">
         {activeChannel && (
           <>
@@ -31,17 +32,7 @@ export function Header() {
 
       {/* Right actions */}
       <div className="flex items-center gap-3">
-        {/* Search */}
-        <div className="flex items-center gap-2 bg-input px-3 py-2 rounded-lg border border-transparent focus-within:border-accent/30 transition-colors">
-          <Search size={16} className="text-muted flex-shrink-0" />
-          <input
-            type="text"
-            placeholder="Search…"
-            className="bg-transparent outline-none text-primary text-sm w-36 placeholder:text-muted"
-          />
-        </div>
-
-        {/* Icons */}
+        <SearchPanel />
         <button className="btn-ghost p-2 rounded-lg" title="Pinned messages">
           <Pin size={16} className="text-muted" />
         </button>

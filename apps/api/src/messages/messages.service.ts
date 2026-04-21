@@ -38,4 +38,18 @@ export class MessagesService {
       data: { deleted: true, content: '' },
     });
   }
+
+  async search(query: string, channelId?: string) {
+    if (!query?.trim() || query.trim().length < 2) return [];
+    return this.prisma.message.findMany({
+      where: {
+        deleted: false,
+        content: { contains: query.trim(), mode: 'insensitive' },
+        ...(channelId ? { channelId } : {}),
+      },
+      include: MESSAGE_INCLUDE,
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+    });
+  }
 }

@@ -22,15 +22,48 @@ function formatTime(date: Date): string {
   return format(date, 'MMM d, HH:mm');
 }
 
+/** Split content on @mentions and render them as highlighted chips. */
+function renderContent(content: string, currentUsername?: string) {
+  const parts = content.split(/(@\w+)/g);
+  return parts.map((part, i) => {
+    if (!/@\w+/.test(part)) return <span key={i}>{part}</span>;
+    const lower = part.toLowerCase();
+    const isMe       = !!currentUsername && lower === `@${currentUsername.toLowerCase()}`;
+    const isEveryone = lower === '@everyone';
+    const highlight  = isMe || isEveryone;
+    return (
+      <span
+        key={i}
+        style={{
+          background: highlight ? 'rgba(139,124,248,0.22)' : 'rgba(139,124,248,0.10)',
+          color: isEveryone ? '#f09f40' : 'var(--color-accent-hover)',
+          borderRadius: 3,
+          padding: '0 4px',
+          fontWeight: 600,
+          fontSize: 14,
+        }}
+      >
+        {part}
+      </span>
+    );
+  });
+}
+
 export const MessageItem = memo(function MessageItem({ message, compact, onReply }: Props) {
   const { user } = useAuthStore();
   const [hovered, setHovered] = useState(false);
   const [copied,  setCopied]  = useState(false);
 
-  const isOwn    = user?.id === message.author.id;
-  const isAdmin  = user?.role === 'ADMIN';
+  const isOwn     = user?.id === message.author.id;
+  const isAdmin   = user?.role === 'ADMIN';
   const canDelete = isOwn || isAdmin;
-  const date     = new Date(message.createdAt);
+  const date      = new Date(message.createdAt);
+
+  // Does this message mention me or @everyone?
+  const mentionsMe = !!user?.username && (
+    message.content.toLowerCase().includes('@everyone') ||
+    message.content.toLowerCase().includes(`@${user.username.toLowerCase()}`)
+  );
 
   const handleDelete = () => {
     if (!window.confirm('Delete this message?')) return;
@@ -68,7 +101,10 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
         position: 'relative',
         padding: compact ? '1px 20px' : '6px 20px 2px',
         borderRadius: 6,
-        background: hovered ? 'rgba(255,255,255,0.025)' : 'transparent',
+        background: mentionsMe
+          ? 'rgba(139,124,248,0.06)'
+          : hovered ? 'rgba(255,255,255,0.025)' : 'transparent',
+        borderLeft: mentionsMe ? '2px solid rgba(139,124,248,0.5)' : '2px solid transparent',
         transition: 'background 0.08s',
       }}
     >
@@ -147,7 +183,7 @@ export const MessageItem = memo(function MessageItem({ message, compact, onReply
             </div>
           )}
           <p style={{ fontSize: 15, color: 'var(--color-primary)', lineHeight: 1.6, wordBreak: 'break-word', margin: 0 }}>
-            {message.content}
+            {renderContent(message.content, user?.username)}
           </p>
         </div>
       </div>

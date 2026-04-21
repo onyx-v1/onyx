@@ -7,6 +7,11 @@ import { MessagesService } from './messages.service';
 export class MessagesController {
   constructor(private messagesService: MessagesService) {}
 
+  @Get('search')
+  search(@Query('q') q: string, @Query('channelId') channelId?: string) {
+    return this.messagesService.search(q, channelId);
+  }
+
   @Get('channel/:channelId')
   findByChannel(
     @Param('channelId') channelId: string,

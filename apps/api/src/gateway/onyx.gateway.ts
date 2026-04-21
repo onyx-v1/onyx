@@ -200,6 +200,54 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
     this.server.to(`channel:${data.channelId}`).emit('message:new', { message });
     this.stopTyping(data.channelId, client.user.id);
+
+    // ── Parse and dispatch @mentions ─────────────────────────────────────────
+    await this.dispatchMentions(content, data.channelId, message.id, client.user);
+  }
+
+  private async dispatchMentions(
+    content: string,
+    channelId: string,
+    messageId: string,
+    sender: AuthSocket['user'],
+  ) {
+    const mentionRE = /@(everyone|\w+)/gi;
+    const names = [...new Set([...content.matchAll(mentionRE)].map((m) => m[1].toLowerCase()))];
+    if (!names.length) return;
+
+    const preview = content.length > 80 ? content.slice(0, 80) + '…' : content;
+
+    for (const name of names) {
+      if (name === 'everyone') {
+        // Broadcast to everyone in the channel EXCEPT the sender
+        this.server.to(`channel:${channelId}`).except(
+          [...(this.onlineUsers.get(sender.id) ?? [])],
+        ).emit('mention:notification', {
+          messageId, channelId, isEveryone: true,
+          fromUser: { displayName: sender.displayName },
+          content: preview,
+        });
+        return; // @everyone supersedes individual mentions
+      }
+
+      // Individual mention — look up by username
+      const target = await this.prisma.user.findUnique({
+        where: { username: name },
+        select: { id: true },
+      });
+      if (!target || target.id === sender.id) continue; // skip self-mention
+
+      const sockets = this.onlineUsers.get(target.id);
+      if (!sockets?.size) continue;
+
+      for (const socketId of sockets) {
+        this.server.to(socketId).emit('mention:notification', {
+          messageId, channelId, isEveryone: false,
+          fromUser: { displayName: sender.displayName },
+          content: preview,
+        });
+      }
+    }
   }
 
   @SubscribeMessage('message:delete')

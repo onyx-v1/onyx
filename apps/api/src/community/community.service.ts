@@ -14,4 +14,11 @@ export class CommunityService {
       },
     });
   }
+
+  async getMembers() {
+    return this.prisma.user.findMany({
+      select: { id: true, username: true, displayName: true },
+      orderBy: { displayName: 'asc' },
+    });
+  }
 }

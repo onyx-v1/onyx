@@ -11,4 +11,9 @@ export class CommunityController {
   getCommunity() {
     return this.communityService.getCommunity();
   }
+
+  @Get('members')
+  getMembers() {
+    return this.communityService.getMembers();
+  }
 }

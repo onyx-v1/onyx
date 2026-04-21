@@ -101,4 +101,11 @@ export namespace WsEvents {
     from: string;
     data: unknown;
   }
+  export interface MentionNotification {
+    messageId: string;
+    channelId: string;
+    fromUser: { displayName: string };
+    content: string;       // first 100 chars preview
+    isEveryone: boolean;
+  }
 }

@@ -3,23 +3,27 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { useSocket, getSocket } from '../../hooks/useSocket';
 import { useSocketStore } from '../../stores/socketStore';
 import { usePresence } from '../../hooks/usePresence';
+import { useMentionNotifications } from '../../hooks/useMentionNotifications';
 import { useChannelStore } from '../../stores/channelStore';
+import { useMembersStore } from '../../stores/membersStore';
+import { MentionToasts } from '../ui/MentionToasts';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 
 export function AppShell() {
   useSocket();
   usePresence();
+  useMentionNotifications();
 
-  const navigate     = useNavigate();
-  const connectionId = useSocketStore((s) => s.connectionId);
+  const navigate          = useNavigate();
+  const connectionId      = useSocketStore((s) => s.connectionId);
   const { fetchCommunity, activeChannelId, channels, setChannels } = useChannelStore();
+  const fetchMembers      = useMembersStore((s) => s.fetchMembers);
 
-  /* ── Load community on mount ─────────────────────────────────────── */
+  /* ── Load community + members on mount ────────────────────────────── */
   useEffect(() => {
-    fetchCommunity().catch(() => {
-      // 401 interceptor will redirect to login; other errors are silent retries
-    });
+    fetchCommunity().catch(() => {});
+    fetchMembers();
   }, []);
 
   /* ── Navigate to first channel once loaded ───────────────────────── */
@@ -30,7 +34,7 @@ export function AppShell() {
     if (ch) navigate(`/${ch.type === 'VOICE' ? 'voice' : 'channel'}/${ch.id}`, { replace: true });
   }, [activeChannelId, channels]);
 
-  /* ── channels:updated — re-runs when socket is ready ────────────── */
+  /* ── channels:updated — re-runs when socket is ready ─────────────── */
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
@@ -46,6 +50,8 @@ export function AppShell() {
       <main className="app-main">
         <Outlet />
       </main>
+      {/* Global mention toast stack */}
+      <MentionToasts />
     </div>
   );
 }
