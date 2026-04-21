@@ -1,11 +1,10 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Copy, Trash2, X, Check } from 'lucide-react';
 import { useSelectionStore } from '../../stores/selectionStore';
-import { useMessageStore } from '../../stores/messageStore';
+import { useMessageStore, isPinEvent } from '../../stores/messageStore';
 import { useDeletePrefsStore } from '../../stores/deletePrefsStore';
 import { useAuthStore } from '../../stores/authStore';
 import { getSocket } from '../../hooks/useSocket';
-import { isPinEvent } from '../../stores/messageStore';
 
 interface Props {
   channelId: string;
@@ -13,42 +12,40 @@ interface Props {
 
 export function MessageSelectionBar({ channelId }: Props) {
   const { active, selectedIds, clearSelection } = useSelectionStore();
-  const { user } = useAuthStore();
-  const isAdmin = user?.role === 'ADMIN';
-  const { openDeleteConfirm, showToast } = useDeletePrefsStore();
+  const { user }  = useAuthStore();
+  const isAdmin   = user?.role === 'ADMIN';
+  const { openDeleteConfirm } = useDeletePrefsStore();
 
   const [copied, setCopied] = useState(false);
 
+  // Only render when selection mode is active and something is selected
   if (!active || selectedIds.size === 0) return null;
 
   const count = selectedIds.size;
 
-  const handleCopy = () => {
+  const handleCopy = useCallback(() => {
     const { messages } = useMessageStore.getState();
-    const channelMsgs = messages.get(channelId) ?? [];
-    const selected = channelMsgs
-      .filter((m) => !isPinEvent(m) && selectedIds.has(m.id))
+    const rows = (messages.get(channelId) ?? [])
+      .filter((m) => !isPinEvent(m) && selectedIds.has(m.id) && !m.deleted && m.content)
       .map((m) => {
-        const time = new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        return `[${time}] ${m.author.displayName}: ${m.content}`;
+        const t = new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return `[${t}] ${m.author.displayName}: ${m.content}`;
       })
       .join('\n');
 
-    if (!selected) return;
-    navigator.clipboard.writeText(selected).then(() => {
+    if (!rows) return;
+    navigator.clipboard.writeText(rows).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
       clearSelection();
     });
-  };
+  }, [channelId, selectedIds, clearSelection]);
 
-  const handleDelete = () => {
+  const handleDelete = useCallback(() => {
     const { messages } = useMessageStore.getState();
-    const channelMsgs = messages.get(channelId) ?? [];
 
-    const deletable = channelMsgs.filter((m) => {
-      if (isPinEvent(m)) return false;
-      if (!selectedIds.has(m.id)) return false;
+    const deletable = (messages.get(channelId) ?? []).filter((m) => {
+      if (isPinEvent(m) || !selectedIds.has(m.id)) return false;
       return isAdmin || m.author.id === user?.id;
     });
 
@@ -56,27 +53,17 @@ export function MessageSelectionBar({ channelId }: Props) {
 
     openDeleteConfirm(deletable.length, () => {
       const socket = getSocket();
-      for (const m of deletable) {
-        socket?.emit('message:delete', { messageId: m.id });
-      }
+      deletable.forEach((m) => socket?.emit('message:delete', { messageId: m.id }));
       clearSelection();
-      // Show toast — messages will disappear via socket event → removeMessage
-      const n = deletable.length;
-      showToast(`${n} message${n > 1 ? 's' : ''} deleted`);
+      // Inline "Message deleted" placeholder + 3s auto-remove handled by useMessages handler
     });
-  };
+  }, [channelId, selectedIds, isAdmin, user?.id, openDeleteConfirm, clearSelection]);
 
   return (
     <div
       style={{
-        position: 'absolute',
-        bottom: '100%',
-        left: 0,
-        right: 0,
-        zIndex: 50,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
+        position: 'absolute', bottom: '100%', left: 0, right: 0, zIndex: 50,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '10px 20px',
         background: 'var(--color-elevated)',
         borderTop: '1px solid rgba(255,255,255,0.08)',
@@ -84,14 +71,15 @@ export function MessageSelectionBar({ channelId }: Props) {
         animation: 'slideUp 0.15s ease-out',
       }}
     >
-      {/* Left — count + deselect */}
+      {/* Left — count + cancel */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <button
           onClick={clearSelection}
+          title="Clear selection"
           style={{
             width: 28, height: 28, borderRadius: '50%',
             background: 'rgba(255,255,255,0.08)',
-            border: 'none', cursor: 'pointer',
+            border: 'none', cursor: 'pointer', flexShrink: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: 'var(--color-muted)',
           }}
@@ -99,42 +87,60 @@ export function MessageSelectionBar({ channelId }: Props) {
           <X size={14} />
         </button>
         <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-primary)' }}>
-          {count} message{count > 1 ? 's' : ''} selected
+          {count} message{count !== 1 ? 's' : ''} selected
         </span>
       </div>
 
       {/* Right — actions */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <button
+        <ActionBtn
           onClick={handleCopy}
           style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: '6px 14px', borderRadius: 8,
             background: 'rgba(139,124,248,0.12)',
-            border: '1px solid rgba(139,124,248,0.25)',
-            cursor: 'pointer', fontSize: 13, fontWeight: 600,
-            color: 'var(--color-accent)',
+            border:     '1px solid rgba(139,124,248,0.25)',
+            color:      'var(--color-accent)',
           }}
         >
           {copied ? <Check size={14} /> : <Copy size={14} />}
           {copied ? 'Copied!' : 'Copy'}
-        </button>
+        </ActionBtn>
 
-        <button
+        <ActionBtn
           onClick={handleDelete}
           style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: '6px 14px', borderRadius: 8,
             background: 'rgba(240,64,64,0.10)',
-            border: '1px solid rgba(240,64,64,0.25)',
-            cursor: 'pointer', fontSize: 13, fontWeight: 600,
-            color: 'var(--color-danger)',
+            border:     '1px solid rgba(240,64,64,0.25)',
+            color:      'var(--color-danger)',
           }}
         >
           <Trash2 size={14} />
           Delete
-        </button>
+        </ActionBtn>
       </div>
     </div>
+  );
+}
+
+/* ── Local action button ─────────────────────────────────────────────── */
+function ActionBtn({
+  onClick, children, style,
+}: {
+  onClick:  () => void;
+  children: React.ReactNode;
+  style:    React.CSSProperties;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 6,
+        padding: '6px 14px', borderRadius: 8,
+        cursor: 'pointer', fontSize: 13, fontWeight: 600,
+        transition: 'opacity 0.15s',
+        ...style,
+      }}
+    >
+      {children}
+    </button>
   );
 }

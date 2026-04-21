@@ -1,23 +1,26 @@
-import { useEffect, useCallback, useState, useMemo } from 'react';
+import { useEffect, useCallback, useRef, useState, useMemo } from 'react';
 import { useMessageStore, isPinEvent } from '../stores/messageStore';
 import { useSocketStore } from '../stores/socketStore';
 import { getSocket } from './useSocket';
 import { WsEvents } from '@onyx/types';
 
 export function useMessages(channelId: string) {
-  const messages   = useMessageStore((s) => s.messages);
-  const pinEvents  = useMessageStore((s) => s.pinEvents);
-  const hasMore    = useMessageStore((s) => s.hasMore);
-  const loading    = useMessageStore((s) => s.loading);
-  const { fetchHistory, removeMessage } = useMessageStore();
+  const messages    = useMessageStore((s) => s.messages);
+  const pinEvents   = useMessageStore((s) => s.pinEvents);
+  const hasMore     = useMessageStore((s) => s.hasMore);
+  const loading     = useMessageStore((s) => s.loading);
+  const { fetchHistory, deleteMessage, removeMessage } = useMessageStore();
   const connectionId = useSocketStore((s) => s.connectionId);
   const [error, setError] = useState<string | null>(null);
+
+  // Track pending cleanup timers so they can be cancelled on channel-switch / unmount
+  const cleanupTimers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
 
   const channelMessages = messages.get(channelId) ?? [];
   const channelHasMore  = hasMore.get(channelId) ?? true;
   const isLoading       = loading.get(channelId) ?? false;
 
-  // Merge messages + pin system rows, sorted by createdAt
+  /** Messages + pin-system-rows merged and sorted by time */
   const merged = useMemo(() => {
     const msgs = messages.get(channelId) ?? [];
     const pins = pinEvents.get(channelId) ?? [];
@@ -26,7 +29,7 @@ export function useMessages(channelId: string) {
     );
   }, [messages, pinEvents, channelId]);
 
-  /* ── Initial history load ────────────────────────────────────────── */
+  /* ── Fetch history on channel mount ─────────────────────────────── */
   useEffect(() => {
     if (!channelId) return;
     setError(null);
@@ -35,7 +38,7 @@ export function useMessages(channelId: string) {
     }
   }, [channelId]);
 
-  /* ── Socket listeners ────────────────────────────────────────────── */
+  /* ── Socket listeners — reconnect-safe ──────────────────────────── */
   useEffect(() => {
     if (!channelId) return;
     const socket = getSocket();
@@ -43,16 +46,34 @@ export function useMessages(channelId: string) {
 
     socket.emit('channel:join', { channelId });
 
-    // Always physically remove — no "Message deleted" placeholder
+    /**
+     * Show italic "Message deleted" placeholder to ALL connected clients
+     * for 3 seconds, then physically remove it from the list.
+     */
     const handleDeleted = ({ messageId, channelId: cId }: WsEvents.MessageDeleted) => {
-      if (cId === channelId) removeMessage(channelId, messageId);
+      if (cId !== channelId) return;
+
+      deleteMessage(channelId, messageId);
+
+      const timer = setTimeout(() => {
+        removeMessage(channelId, messageId);
+        cleanupTimers.current.delete(timer);
+      }, 3000);
+
+      cleanupTimers.current.add(timer);
     };
 
     socket.on('message:deleted', handleDeleted);
-    return () => { socket.off('message:deleted', handleDeleted); };
+
+    return () => {
+      socket.off('message:deleted', handleDeleted);
+      // Cancel any pending auto-remove timers for this channel
+      cleanupTimers.current.forEach(clearTimeout);
+      cleanupTimers.current.clear();
+    };
   }, [channelId, connectionId]);
 
-  /* ── Load more (older messages) ──────────────────────────────────── */
+  /* ── Load older messages ─────────────────────────────────────────── */
   const loadMore = useCallback(() => {
     if (!channelHasMore || isLoading) return;
     const oldest = channelMessages.find((m) => !isPinEvent(m));
