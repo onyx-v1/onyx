@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Navigate } from 'react-router-dom';
 import { useChannelStore } from '../stores/channelStore';
 import { useMessages } from '../hooks/useMessages';
@@ -10,11 +10,12 @@ import { useSelectionStore } from '../stores/selectionStore';
 import { Message } from '@onyx/types';
 import { Hash } from 'lucide-react';
 
+/* ── Route shell — guards channelId before rendering view ────────────── */
 export function ChannelPage() {
   const { channelId } = useParams<{ channelId: string }>();
   const { setActiveChannel, markRead } = useChannelStore();
 
-  // Sync store whenever URL channelId changes (e.g. navigating from search results)
+  // Sync active channel + mark read on navigation
   useEffect(() => {
     if (!channelId) return;
     setActiveChannel(channelId);
@@ -22,23 +23,30 @@ export function ChannelPage() {
   }, [channelId]);
 
   if (!channelId) return <Navigate to="/" replace />;
+  // key prop unmounts/remounts ChannelView when channel changes,
+  // resetting all local state (reply, scroll position, etc.)
   return <ChannelView key={channelId} channelId={channelId} />;
 }
 
-// Separated so hooks only run when channelId is guaranteed truthy
+/* ── Channel view — channelId is guaranteed truthy here ─────────────── */
 function ChannelView({ channelId }: { channelId: string }) {
   const { channels } = useChannelStore();
   const { clearSelection } = useSelectionStore();
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const { messages, hasMore, isLoading, loadMore, error } = useMessages(channelId);
 
-  const channel = channels.find((c) => c.id === channelId);
+  // Memoised channel lookup — avoids scanning array on every render
+  const channel = useMemo(
+    () => channels.find((c) => c.id === channelId),
+    [channels, channelId],
+  );
 
-  // Clear any active selection when switching channels
+  // Clear selection when channel changes
   useEffect(() => { clearSelection(); }, [channelId]);
 
-  const handleReply = (msg: Message) => setReplyTo(msg);
-  const cancelReply = () => setReplyTo(null);
+  // Stable callbacks — prevent MessageList from re-rendering on unrelated state changes
+  const handleReply  = useCallback((msg: Message) => setReplyTo(msg), []);
+  const cancelReply  = useCallback(() => setReplyTo(null), []);
 
   return (
     <div className="flex flex-col h-full" style={{ animation: 'channel-enter 0.18s ease-out' }}>
@@ -49,7 +57,7 @@ function ChannelView({ channelId }: { channelId: string }) {
           <div className="flex-1 flex flex-col items-center justify-center gap-2">
             <p style={{ fontSize: 14, color: 'var(--color-danger)' }}>Failed to load messages.</p>
             <button
-              onClick={() => loadMore()}
+              onClick={loadMore}
               className="btn-ghost"
               style={{ fontSize: 13, color: 'var(--color-accent)' }}
             >

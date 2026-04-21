@@ -17,7 +17,7 @@ const CONNECTOR_W = AVATAR_W / 2 + COL_GAP; // 30px — aligns with avatar centr
 interface Props {
   message:       Message;
   compact:       boolean;
-  onReply:       () => void;
+  onReply:       (msg: Message) => void;   // stable ref from MessageList
   isHighlighted?: boolean;
 }
 
@@ -270,7 +270,7 @@ export const MessageItem = memo(function MessageItem({
           }}
         >
           <ActionBtn title="Select"  onClick={handleEnterSelection}><Check  size={14} /></ActionBtn>
-          <ActionBtn title="Reply"   onClick={onReply}>             <Reply  size={14} /></ActionBtn>
+          <ActionBtn title="Reply" onClick={() => onReply(message)}><Reply size={14} /></ActionBtn>
           <ActionBtn title={copied ? 'Copied!' : 'Copy'} onClick={handleCopy}>
             {copied
               ? <Check size={14} style={{ color: 'var(--color-online)' }} />

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Send, X, CornerUpLeft, AtSign } from 'lucide-react';
 import { Message } from '@onyx/types';
 import { getSocket } from '../../hooks/useSocket';
@@ -27,16 +27,17 @@ export function MessageInput({ channelId, replyTo, onCancelReply }: Props) {
 
   const members = useMembersStore((s) => s.members);
 
-  // Filtered mention list: @everyone + members matching query
-  const mentionList: Member[] = mentionQuery === null ? [] : [
-    ...(EVERYONE.displayName.toLowerCase().includes(mentionQuery.toLowerCase()) ||
-        'everyone'.startsWith(mentionQuery.toLowerCase()) ? [EVERYONE] : []),
-    ...members.filter(
-      (m) =>
-        m.username.toLowerCase().includes(mentionQuery.toLowerCase()) ||
-        m.displayName.toLowerCase().includes(mentionQuery.toLowerCase()),
-    ),
-  ];
+  // Filtered mention list — memoised so members aren't re-filtered on unrelated renders
+  const mentionList: Member[] = useMemo(() => {
+    if (mentionQuery === null) return [];
+    const q = mentionQuery.toLowerCase();
+    return [
+      ...(EVERYONE.displayName.toLowerCase().includes(q) || 'everyone'.startsWith(q) ? [EVERYONE] : []),
+      ...members.filter(
+        (m) => m.username.toLowerCase().includes(q) || m.displayName.toLowerCase().includes(q),
+      ),
+    ];
+  }, [mentionQuery, members]);
 
   /* ── Stop typing ─────────────────────────────────────────────────── */
   const stopTyping = useCallback(() => {
