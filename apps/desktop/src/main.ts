@@ -23,14 +23,14 @@ import { setupUpdater } from './updater';
 
 // ── App URL ──────────────────────────────────────────────────────────────────
 // Change ONYX_APP_URL env var at build time to point to your live deployment.
-// Example: ONYX_APP_URL=https://onyx.up.railway.app npm run dist
 const ONYX_APP_URL =
   process.env.ONYX_APP_URL ||
-  'https://onyx.yourdomain.com'; // ← replace with your live URL
+  'https://onyx.yourdomain.com'; // ← replace with your Railway URL
 
 // ── State ────────────────────────────────────────────────────────────────────
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
+let isQuitting = false;           // track intentional quit vs close-to-tray
 
 // ── Single-instance lock ─────────────────────────────────────────────────────
 const gotLock = app.requestSingleInstanceLock();
@@ -131,9 +131,9 @@ app.whenReady().then(() => {
   mainWindow = createWindow();
   tray = createTray(mainWindow);
 
-  // Minimise to tray on close (Windows behaviour)
+  // Minimise to tray on close — quit only when explicitly requested
   mainWindow.on('close', (event) => {
-    if (!app.isQuitting) {
+    if (!isQuitting) {
       event.preventDefault();
       mainWindow?.hide();
     }
@@ -143,8 +143,8 @@ app.whenReady().then(() => {
   setupUpdater(mainWindow);
 });
 
-// Mark quit flag so the close handler above allows it
-app.on('before-quit', () => { (app as any).isQuitting = true; });
+// Mark quit flag so the close handler above allows the window to close
+app.on('before-quit', () => { isQuitting = true; });
 
 // macOS: re-create window when clicking dock icon (not needed for Win-only,
 // kept for forward-compatibility)

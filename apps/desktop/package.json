@@ -12,7 +12,8 @@
     "dist:unsigned": "npm run build && electron-builder --win --config.win.certificateFile="
   },
   "dependencies": {
-    "electron-updater": "^6.1.7"
+    "electron-updater": "^6.1.7",
+    "electron-log":     "^5.1.2"
   },
   "devDependencies": {
     "electron":         "^29.4.6",

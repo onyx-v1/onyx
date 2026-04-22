@@ -6,7 +6,7 @@ on:
       - 'v*'           # triggers on: git tag v1.0.0 && git push --tags
 
 permissions:
-  contents: write      # needed to upload to GitHub Releases
+  contents: write      # required to create/update GitHub Releases
 
 jobs:
   build-windows:
@@ -25,9 +25,15 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      # ── Install desktop deps ──────────────────────────────────────────
+      # ── Install all desktop deps (including electron-log) ─────────────
       - name: Install dependencies
         run: npm install
+        working-directory: apps/desktop
+
+      # ── Generate icons from PNG ────────────────────────────────────────
+      - name: Generate icons
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File scripts/generate-icons.ps1
         working-directory: apps/desktop
 
       # ── Compile TypeScript ────────────────────────────────────────────
@@ -35,23 +41,21 @@ jobs:
         run: npm run build
         working-directory: apps/desktop
 
-      # ── Generate icons ────────────────────────────────────────────────
-      - name: Generate icons
-        run: powershell -ExecutionPolicy Bypass -File scripts/generate-icons.ps1
-        working-directory: apps/desktop
-
-      # ── Package installer ─────────────────────────────────────────────
+      # ── Package + publish to GitHub Releases ──────────────────────────
+      # GH_TOKEN   → used by electron-builder to create the Release & upload assets
+      # ONYX_APP_URL → injected into the Electron binary at build time
       - name: Package with electron-builder
+        shell: powershell
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ONYX_APP_URL: ${{ secrets.ONYX_APP_URL }}    # set this secret in GitHub repo settings
+          GH_TOKEN:     ${{ secrets.GITHUB_TOKEN }}
+          ONYX_APP_URL: ${{ secrets.ONYX_APP_URL }}
         run: npx electron-builder --win --config electron-builder.config.js --publish always
         working-directory: apps/desktop
 
-      # ── Upload artifacts (also available as GH Actions artifacts) ─────
+      # ── Also attach installer as an Actions artifact ───────────────────
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Onyx-Windows-Installer
+          name: Onyx-Windows-Setup
           path: apps/desktop/release/*.exe
           retention-days: 30
