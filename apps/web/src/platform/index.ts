@@ -6,8 +6,11 @@
  *
  * Usage:
  *   import { platform } from '../platform';
- *   platform.ready().then(() => { ... });
+ *   if (platform.isNative) { ... }
  */
+
+import webPlatform    from './web';
+import nativePlatform from './native';
 
 export interface PlatformAPI {
   /** True when running inside Capacitor (Android) */
@@ -18,25 +21,13 @@ export interface PlatformAPI {
   ready: () => Promise<void>;
 }
 
-// Runtime detection — no bundler tricks, pure runtime check
+// Runtime detection — evaluated once at module load
 const isCapacitor =
   typeof window !== 'undefined' &&
   !!(window as any).Capacitor?.isNativePlatform?.();
 
-// Synchronous resolution — no dynamic import latency for components
-let _platform: PlatformAPI;
+export const platform: PlatformAPI = isCapacitor ? nativePlatform : webPlatform;
 
-if (isCapacitor) {
-  // Lazy load Capacitor impl — ensures Capacitor SDK never ships in web/Electron bundles
-  const mod = require('./native');
-  _platform = mod.default;
-} else {
-  const mod = require('./web');
-  _platform = mod.default;
-}
-
-export const platform = _platform;
-
-// Convenience flags — use these directly in components
-export const isNative  = _platform.isNative;
-export const isDesktop = _platform.isDesktop;
+// Convenience flags
+export const isNative  = platform.isNative;
+export const isDesktop = platform.isDesktop;
