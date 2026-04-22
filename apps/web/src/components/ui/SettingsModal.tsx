@@ -1,56 +1,194 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, LogOut, Monitor, Smartphone, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
+import {
+  X, LogOut, Monitor, Smartphone,
+  RefreshCw, CheckCircle, AlertCircle, Download, Zap,
+} from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { Avatar } from './Avatar';
 import { platform } from '../../platform';
+import type { UpdateState } from '../../platform';
 
-// ── Download URLs (GitHub Releases latest) ────────────────────────────────────
 const GITHUB_REPO      = 'https://github.com/onyx-v1/onyx';
 const DOWNLOAD_WINDOWS = `${GITHUB_REPO}/releases/latest/download/Onyx-Setup.exe`;
 const DOWNLOAD_ANDROID = `${GITHUB_REPO}/releases/latest/download/Onyx.apk`;
 
-// ── Electron bridge (typed) ───────────────────────────────────────────────────
-const electronAPI = typeof window !== 'undefined'
-  ? (window as any).__onyx as { platform: 'electron'; version: string; checkForUpdates: () => Promise<{ checking?: boolean; error?: string }> } | undefined
+const electron = typeof window !== 'undefined'
+  ? (window as any).__onyx as {
+      version: string;
+      checkForUpdates: () => Promise<unknown>;
+      onUpdateStatus:  (cb: (s: UpdateState) => void) => void;
+      quitAndInstall:  () => void;
+    } | undefined
   : undefined;
 
-interface Props {
-  onClose: () => void;
-}
+interface Props { onClose: () => void; }
 
 export function SettingsModal({ onClose }: Props) {
   const { user, logout } = useAuthStore();
   const overlayRef = useRef<HTMLDivElement>(null);
-
-  // Update check state (desktop only)
-  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'done' | 'error'>('idle');
+  const [updateStatus, setUpdateStatus] = useState<UpdateState | null>(null);
+  const [manualChecking, setManualChecking] = useState(false);
 
   const handleBackdrop = (e: React.MouseEvent) => {
     if (e.target === overlayRef.current) onClose();
   };
 
+  // Close on Escape
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', h);
+    return () => document.removeEventListener('keydown', h);
   }, [onClose]);
+
+  // Subscribe to real-time update status events from main process
+  useEffect(() => {
+    if (!platform.isDesktop || !platform.onUpdateStatus) return;
+    platform.onUpdateStatus((status) => {
+      setUpdateStatus(status);
+      setManualChecking(false);
+    });
+  }, []);
+
+  const handleCheckUpdates = async () => {
+    if (!platform.checkForUpdates) return;
+    setManualChecking(true);
+    setUpdateStatus({ state: 'checking' });
+    await platform.checkForUpdates();
+  };
+
+  const handleRestart = () => {
+    platform.quitAndInstall?.();
+  };
 
   const handleLogout = () => { logout(); onClose(); };
 
-  const handleCheckUpdates = async () => {
-    if (!electronAPI?.checkForUpdates) return;
-    setUpdateStatus('checking');
-    try {
-      const result = await electronAPI.checkForUpdates();
-      setUpdateStatus(result?.error ? 'error' : 'done');
-      setTimeout(() => setUpdateStatus('idle'), 4000);
-    } catch {
-      setUpdateStatus('error');
-      setTimeout(() => setUpdateStatus('idle'), 4000);
-    }
-  };
+  const appVersion = electron?.version ?? null;
 
-  const appVersion = electronAPI?.version ?? null;
+  // ── Update UI helpers ───────────────────────────────────────────────────────
+  const renderUpdateSection = () => {
+    const s = updateStatus;
+
+    let btnLabel   = 'Check for updates';
+    let btnIcon    = <RefreshCw size={13} />;
+    let btnColor   = 'rgba(139,124,248,0.12)';
+    let btnText    = 'var(--color-accent)';
+    let btnDisabled = false;
+    let showRestart = false;
+    let statusLine: string | null = null;
+
+    if (manualChecking || s?.state === 'checking') {
+      btnLabel    = 'Checking…';
+      btnIcon     = <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} />;
+      btnDisabled = true;
+    } else if (s?.state === 'available') {
+      btnLabel  = `v${s.version} available`;
+      btnIcon   = <Download size={13} />;
+      btnColor  = 'rgba(62,207,142,0.12)';
+      btnText   = 'var(--color-online)';
+      statusLine = 'Downloading in background…';
+    } else if (s?.state === 'downloading') {
+      btnLabel    = `Downloading ${s.percent}%`;
+      btnIcon     = <Download size={13} />;
+      btnColor    = 'rgba(62,207,142,0.10)';
+      btnText     = 'var(--color-online)';
+      btnDisabled = true;
+      statusLine  = `${Math.round(s.bytesPerSecond / 1024)} KB/s`;
+    } else if (s?.state === 'ready') {
+      btnLabel    = 'Restart to update';
+      btnIcon     = <Zap size={13} />;
+      btnColor    = 'rgba(62,207,142,0.18)';
+      btnText     = 'var(--color-online)';
+      showRestart = true;
+      statusLine  = `v${s.version} ready to install`;
+    } else if (s?.state === 'not-available') {
+      btnLabel  = 'Up to date';
+      btnIcon   = <CheckCircle size={13} />;
+      btnColor  = 'rgba(255,255,255,0.06)';
+      btnText   = 'var(--color-subtle)';
+      btnDisabled = true;
+    } else if (s?.state === 'error') {
+      btnLabel  = 'Retry';
+      btnIcon   = <AlertCircle size={13} />;
+      btnColor  = 'rgba(240,64,64,0.12)';
+      btnText   = 'var(--color-danger)';
+      statusLine = s.message.slice(0, 60);
+    }
+
+    return (
+      <div style={{ padding: '0 16px 14px' }}>
+        <div style={{
+          padding: '10px 12px', borderRadius: 10,
+          background: 'rgba(255,255,255,0.04)',
+          border: '1px solid rgba(255,255,255,0.07)',
+        }}>
+          {/* Version row */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: statusLine ? 8 : 0 }}>
+            <div>
+              <p style={{ margin: 0, fontSize: 11, color: 'var(--color-muted)', fontWeight: 500 }}>Version</p>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--color-primary)' }}>
+                {appVersion ? `v${appVersion}` : 'v1.1.0'}
+              </p>
+            </div>
+
+            {showRestart ? (
+              <button
+                onClick={handleRestart}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '7px 12px', borderRadius: 8, border: 'none',
+                  background: btnColor, color: btnText,
+                  fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  animation: 'pulse 2s infinite',
+                }}
+              >
+                {btnIcon}{btnLabel}
+              </button>
+            ) : (
+              <button
+                onClick={handleCheckUpdates}
+                disabled={btnDisabled}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '7px 12px', borderRadius: 8, border: 'none',
+                  background: btnColor, color: btnText,
+                  fontSize: 12, fontWeight: 600,
+                  cursor: btnDisabled ? 'default' : 'pointer',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {btnIcon}{btnLabel}
+              </button>
+            )}
+          </div>
+
+          {/* Status line */}
+          {statusLine && (
+            <p style={{
+              margin: 0, fontSize: 11, color: 'var(--color-muted)',
+              paddingTop: 6, borderTop: '1px solid rgba(255,255,255,0.06)',
+            }}>
+              {statusLine}
+            </p>
+          )}
+
+          {/* Download progress bar */}
+          {s?.state === 'downloading' && (
+            <div style={{
+              marginTop: 6, height: 3, borderRadius: 2,
+              background: 'rgba(255,255,255,0.1)', overflow: 'hidden',
+            }}>
+              <div style={{
+                height: '100%', width: `${s.percent}%`,
+                background: 'var(--color-online)',
+                transition: 'width 0.3s ease',
+                borderRadius: 2,
+              }} />
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div
@@ -60,25 +198,21 @@ export function SettingsModal({ onClose }: Props) {
         position: 'fixed', inset: 0, zIndex: 200,
         background: 'rgba(0,0,0,0.6)',
         backdropFilter: 'blur(6px)',
-        display: 'flex',
-        alignItems: 'flex-end',
-        justifyContent: 'flex-start',
+        display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-start',
         animation: 'fadeIn 0.15s ease-out',
       }}
     >
-      <div
-        style={{
-          width: 'min(320px, 92vw)',
-          background: 'var(--color-elevated)',
-          borderRadius: 16,
-          border: '1px solid rgba(255,255,255,0.08)',
-          boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
-          margin: '0 12px 80px 12px',
-          overflow: 'hidden',
-          animation: 'slideUp 0.2s cubic-bezier(0.34,1.56,0.64,1)',
-        }}
-      >
-        {/* ── Header ─────────────────────────────────────────────────── */}
+      <div style={{
+        width: 'min(320px, 92vw)',
+        background: 'var(--color-elevated)',
+        borderRadius: 16,
+        border: '1px solid rgba(255,255,255,0.08)',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+        margin: '0 12px 80px 12px',
+        overflow: 'hidden',
+        animation: 'slideUp 0.2s cubic-bezier(0.34,1.56,0.64,1)',
+      }}>
+        {/* Header */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '14px 16px 12px',
@@ -87,144 +221,54 @@ export function SettingsModal({ onClose }: Props) {
           <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-primary)', letterSpacing: '0.02em' }}>
             Settings
           </span>
-          <button
-            onClick={onClose}
-            style={{
-              width: 24, height: 24, borderRadius: 6,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: 'rgba(255,255,255,0.06)', border: 'none',
-              cursor: 'pointer', color: 'var(--color-subtle)',
-            }}
-          >
+          <button onClick={onClose} style={{
+            width: 24, height: 24, borderRadius: 6,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(255,255,255,0.06)', border: 'none',
+            cursor: 'pointer', color: 'var(--color-subtle)',
+          }}>
             <X size={13} />
           </button>
         </div>
 
-        {/* ── Profile ────────────────────────────────────────────────── */}
+        {/* Profile */}
         <div style={{ padding: '16px 16px 12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Avatar
-              displayName={user?.displayName ?? ''}
-              avatarUrl={user?.avatarUrl}
-              size="md"
-            />
+            <Avatar displayName={user?.displayName ?? ''} avatarUrl={user?.avatarUrl} size="md" />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{
-                margin: 0, fontSize: 15, fontWeight: 700,
-                color: 'var(--color-primary)',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }}>
+              <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--color-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {user?.displayName}
               </p>
-              <p style={{
-                margin: 0, fontSize: 12, color: 'var(--color-muted)',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }}>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--color-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 @{user?.username}
               </p>
             </div>
             {user?.role === 'ADMIN' && (
               <span style={{
                 fontSize: 10, fontWeight: 700,
-                background: 'rgba(139,124,248,0.18)',
-                color: 'var(--color-accent)',
+                background: 'rgba(139,124,248,0.18)', color: 'var(--color-accent)',
                 borderRadius: 6, padding: '3px 7px',
                 textTransform: 'uppercase', letterSpacing: '0.08em', flexShrink: 0,
-              }}>
-                Admin
-              </span>
+              }}>Admin</span>
             )}
           </div>
         </div>
 
-        {/* ── Desktop: version + update ───────────────────────────────── */}
-        {platform.isDesktop && (
-          <div style={{ padding: '0 16px 14px' }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '10px 12px', borderRadius: 10,
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.07)',
-            }}>
-              {/* Version */}
-              <div>
-                <p style={{ margin: 0, fontSize: 12, color: 'var(--color-muted)', fontWeight: 500 }}>
-                  Version
-                </p>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--color-primary)' }}>
-                  {appVersion ? `v${appVersion}` : 'v1.0.0'}
-                </p>
-              </div>
+        {/* Desktop: version + update */}
+        {platform.isDesktop && renderUpdateSection()}
 
-              {/* Check for updates button */}
-              <button
-                onClick={handleCheckUpdates}
-                disabled={updateStatus === 'checking'}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '7px 12px', borderRadius: 8, border: 'none',
-                  background: updateStatus === 'done'    ? 'rgba(62,207,142,0.15)'   :
-                              updateStatus === 'error'   ? 'rgba(240,64,64,0.15)'    :
-                              updateStatus === 'checking'? 'rgba(139,124,248,0.10)'  :
-                                                          'rgba(139,124,248,0.12)',
-                  color: updateStatus === 'done'  ? 'var(--color-online)'  :
-                         updateStatus === 'error' ? 'var(--color-danger)'  :
-                                                    'var(--color-accent)',
-                  fontSize: 12, fontWeight: 600, cursor: updateStatus === 'checking' ? 'default' : 'pointer',
-                  transition: 'all 0.15s',
-                }}
-              >
-                {updateStatus === 'checking' ? (
-                  <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} />
-                ) : updateStatus === 'done' ? (
-                  <CheckCircle size={13} />
-                ) : updateStatus === 'error' ? (
-                  <AlertCircle size={13} />
-                ) : (
-                  <RefreshCw size={13} />
-                )}
-                {updateStatus === 'checking' ? 'Checking…' :
-                 updateStatus === 'done'     ? 'Up to date' :
-                 updateStatus === 'error'    ? 'Failed'     :
-                                              'Check for updates'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ── Web/Mobile: download section ────────────────────────────── */}
+        {/* Web/Mobile: download buttons */}
         {!platform.isDesktop && !platform.isNative && (
           <div style={{ padding: '0 16px 14px' }}>
-            <p style={{
-              fontSize: 11, fontWeight: 600, color: 'var(--color-subtle)',
-              textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px',
-            }}>
+            <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px' }}>
               Download App
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {/* Windows */}
-              <a
-                href={DOWNLOAD_WINDOWS} target="_blank" rel="noreferrer"
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '10px 12px', borderRadius: 10,
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.07)',
-                  textDecoration: 'none', transition: 'background 0.12s, border-color 0.12s',
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.background = 'rgba(139,124,248,0.10)';
-                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(139,124,248,0.3)';
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)';
-                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.07)';
-                }}
-              >
-                <div style={{
-                  width: 32, height: 32, borderRadius: 8, background: 'rgba(139,124,248,0.12)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                }}>
+              <a href={DOWNLOAD_WINDOWS} target="_blank" rel="noreferrer"
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', textDecoration: 'none', transition: 'background 0.12s, border-color 0.12s' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(139,124,248,0.10)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(139,124,248,0.3)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.07)'; }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(139,124,248,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <Monitor size={16} style={{ color: 'var(--color-accent)' }} />
                 </div>
                 <div>
@@ -232,29 +276,11 @@ export function SettingsModal({ onClose }: Props) {
                   <p style={{ margin: 0, fontSize: 11, color: 'var(--color-muted)' }}>Onyx-Setup.exe</p>
                 </div>
               </a>
-              {/* Android */}
-              <a
-                href={DOWNLOAD_ANDROID} target="_blank" rel="noreferrer"
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '10px 12px', borderRadius: 10,
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.07)',
-                  textDecoration: 'none', transition: 'background 0.12s, border-color 0.12s',
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.background = 'rgba(62,207,142,0.10)';
-                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(62,207,142,0.3)';
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)';
-                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.07)';
-                }}
-              >
-                <div style={{
-                  width: 32, height: 32, borderRadius: 8, background: 'rgba(62,207,142,0.12)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                }}>
+              <a href={DOWNLOAD_ANDROID} target="_blank" rel="noreferrer"
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', textDecoration: 'none', transition: 'background 0.12s, border-color 0.12s' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(62,207,142,0.10)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(62,207,142,0.3)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.07)'; }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(62,207,142,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <Smartphone size={16} style={{ color: 'var(--color-online)' }} />
                 </div>
                 <div>
@@ -266,23 +292,18 @@ export function SettingsModal({ onClose }: Props) {
           </div>
         )}
 
-        {/* ── Divider ────────────────────────────────────────────────── */}
         <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 16px' }} />
 
-        {/* ── Logout ─────────────────────────────────────────────────── */}
+        {/* Logout */}
         <div style={{ padding: '8px 8px' }}>
-          <button
-            onClick={handleLogout}
-            style={{
-              width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-              padding: '10px 10px', borderRadius: 8, border: 'none',
-              background: 'transparent', cursor: 'pointer',
-              color: 'var(--color-danger)', fontSize: 13, fontWeight: 600,
-              transition: 'background 0.12s',
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(240,64,64,0.10)'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-          >
+          <button onClick={handleLogout} style={{
+            width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+            padding: '10px 10px', borderRadius: 8, border: 'none',
+            background: 'transparent', cursor: 'pointer',
+            color: 'var(--color-danger)', fontSize: 13, fontWeight: 600, transition: 'background 0.12s',
+          }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(240,64,64,0.10)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
             <LogOut size={15} />
             Sign out
           </button>

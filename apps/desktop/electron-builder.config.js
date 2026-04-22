@@ -14,6 +14,14 @@ module.exports = {
   extraMetadata: {
     onyxAppUrl: process.env.ONYX_APP_URL || 'https://onyx-api0.up.railway.app',
   },
+
+  // ── Runtime resources (tray icon, notification icon) ───────────────
+  // Copies resources/ → process.resourcesPath/resources/ in the packaged app
+  // Access at runtime via: path.join(process.resourcesPath, 'resources', 'icon.ico')
+  extraResources: [
+    { from: 'resources/', to: 'resources/' },
+  ],
+
   directories: {
     output: 'release',        // built installer lands here
     buildResources: 'resources', // icons etc.

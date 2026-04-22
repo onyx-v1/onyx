@@ -1,73 +1,85 @@
 /**
- * Auto-updater — checks GitHub Releases for new Electron versions.
+ * Auto-updater — checks GitHub Releases for new Electron shell versions.
  *
- * The web app itself never needs updating (it loads from the live server).
- * This only updates the Electron shell when a new version is released.
+ * Status events are sent to the renderer via IPC so the Settings modal
+ * can show accurate real-time update progress instead of guessing.
  *
  * Flow:
- *  1. App starts → checkForUpdatesAndNotify()
- *  2. If update available → downloads silently in background
- *  3. On next app restart → installs update automatically
+ *  1. App starts → checkForUpdates() (5s delay)
+ *  2. User clicks "Check for updates" → triggers another checkForUpdates()
+ *  3. Each state change → win.webContents.send('update-status', state)
+ *  4. SettingsModal listens and renders correct UI for each state
  */
 
-import { BrowserWindow, dialog } from 'electron';
-import { autoUpdater }           from 'electron-updater';
-import log                       from 'electron-log';
+import { BrowserWindow } from 'electron';
+import { autoUpdater }   from 'electron-updater';
+import log               from 'electron-log';
+
+export type UpdateState =
+  | { state: 'checking' }
+  | { state: 'available';     version: string }
+  | { state: 'downloading';   percent: number; bytesPerSecond: number }
+  | { state: 'ready';         version: string }
+  | { state: 'not-available' }
+  | { state: 'error';         message: string };
 
 // Route auto-updater logs to the Electron log file
 autoUpdater.logger = log;
 (autoUpdater.logger as any).transports.file.level = 'info';
-
-// Do not auto-install — let user decide when to restart
 autoUpdater.autoInstallOnAppQuit = true;
+autoUpdater.autoDownload         = true;
+
+function send(win: BrowserWindow, status: UpdateState): void {
+  if (!win.isDestroyed()) {
+    win.webContents.send('update-status', status);
+  }
+}
 
 export function setupUpdater(win: BrowserWindow): void {
-  // ── Events ──────────────────────────────────────────────────────────
   autoUpdater.on('checking-for-update', () => {
-    log.info('[updater] Checking for update…');
+    log.info('[updater] Checking…');
+    send(win, { state: 'checking' });
   });
 
   autoUpdater.on('update-available', (info) => {
     log.info('[updater] Update available:', info.version);
-    // Silently download — no user prompt needed
+    send(win, { state: 'available', version: info.version });
+    // autoDownload=true means the download starts automatically after this
   });
 
   autoUpdater.on('update-not-available', () => {
-    log.info('[updater] Already on latest version.');
+    log.info('[updater] Up to date.');
+    send(win, { state: 'not-available' });
   });
 
   autoUpdater.on('download-progress', (progress) => {
     const pct = Math.round(progress.percent);
     log.info(`[updater] Downloading… ${pct}%`);
     win.setProgressBar(pct / 100);
+    send(win, {
+      state:         'downloading',
+      percent:       pct,
+      bytesPerSecond: Math.round(progress.bytesPerSecond),
+    });
   });
 
   autoUpdater.on('update-downloaded', (info) => {
-    win.setProgressBar(-1); // clear progress bar
-    log.info('[updater] Update downloaded:', info.version);
-
-    // Prompt user: restart now or later
-    dialog.showMessageBox(win, {
-      type:    'info',
-      title:   'Update Ready',
-      message: `Onyx ${info.version} is ready to install.`,
-      detail:  'Restart now to apply the update, or it will install automatically on next launch.',
-      buttons: ['Restart Now', 'Later'],
-      defaultId: 0,
-    }).then(({ response }) => {
-      if (response === 0) autoUpdater.quitAndInstall();
-    });
+    win.setProgressBar(-1);
+    log.info('[updater] Downloaded:', info.version);
+    send(win, { state: 'ready', version: info.version });
+    // Renderer shows "Restart to update" — user clicks → IPC quit-and-install
   });
 
   autoUpdater.on('error', (err) => {
     log.error('[updater] Error:', err);
+    win.setProgressBar(-1);
+    send(win, { state: 'error', message: err.message });
   });
 
-  // ── Trigger check ────────────────────────────────────────────────────
-  // Delay slightly to let the window fully load before checking
+  // Initial check on startup (5s delay to let window fully load)
   setTimeout(() => {
-    autoUpdater.checkForUpdatesAndNotify().catch((err) => {
-      log.warn('[updater] Could not check for updates:', err.message);
+    autoUpdater.checkForUpdates().catch((err) => {
+      log.warn('[updater] Could not check:', err.message);
     });
   }, 5000);
 }

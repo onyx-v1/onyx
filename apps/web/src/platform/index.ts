@@ -1,8 +1,6 @@
 /**
  * Platform Bridge — Public API
- *
- * This is the ONLY file components should import from.
- * Never import Capacitor or Electron APIs directly in components.
+ * Import ONLY from this file in components/hooks.
  */
 
 import webPlatform    from './web';
@@ -14,17 +12,25 @@ export interface NotificationOptions {
   channelId?: string;
 }
 
+export type UpdateState =
+  | { state: 'checking' }
+  | { state: 'available';    version: string }
+  | { state: 'downloading';  percent: number; bytesPerSecond: number }
+  | { state: 'ready';        version: string }
+  | { state: 'not-available' }
+  | { state: 'error';        message: string };
+
 export interface PlatformAPI {
-  /** True when running inside Capacitor (Android) */
-  isNative: boolean;
-  /** True when running inside Electron (Windows desktop) */
-  isDesktop: boolean;
-  /** Resolves when the native bridge is ready */
-  ready: () => Promise<void>;
-  /** Show a native OS notification */
-  showNotification: (opts: NotificationOptions) => void;
-  /** Register a handler called when user clicks a notification toast */
-  onNotificationClick: (cb: (channelId: string) => void) => void;
+  isNative:   boolean;
+  isDesktop:  boolean;
+  ready:      () => Promise<void>;
+  // Notifications
+  showNotification:   (opts: NotificationOptions) => void;
+  onNotificationClick:(cb: (channelId: string) => void) => void;
+  // Updates (desktop only — no-ops on other platforms)
+  checkForUpdates:  (() => void) | undefined;
+  onUpdateStatus:   ((cb: (s: UpdateState) => void) => void) | undefined;
+  quitAndInstall:   (() => void) | undefined;
 }
 
 const isCapacitor =
@@ -32,6 +38,5 @@ const isCapacitor =
   !!(window as any).Capacitor?.isNativePlatform?.();
 
 export const platform: PlatformAPI = isCapacitor ? nativePlatform : webPlatform;
-
 export const isNative  = platform.isNative;
 export const isDesktop = platform.isDesktop;

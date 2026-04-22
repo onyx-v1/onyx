@@ -20,6 +20,10 @@ const nativePlatform: PlatformAPI = {
   // For now the web app's mention toasts handle in-app alerts on Android
   showNotification: () => {},
   onNotificationClick: () => {},
+  // Updates not applicable on Android
+  checkForUpdates: undefined,
+  onUpdateStatus:  undefined,
+  quitAndInstall:  undefined,
 };
 
 export default nativePlatform;
