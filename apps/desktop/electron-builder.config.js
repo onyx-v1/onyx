@@ -32,6 +32,7 @@ module.exports = {
     ],
     icon:            'resources/icon.ico',
     requestedExecutionLevel: 'asInvoker',   // no UAC prompt
+    artifactName: 'Onyx-Setup.exe',         // fixed name — no version/spaces
   },
 
   // ── NSIS installer options ──────────────────────────────────────────
