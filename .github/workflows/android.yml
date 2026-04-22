@@ -1,0 +1,73 @@
+name: Android Build
+
+on:
+  push:
+    tags:
+      - 'v*'           # same trigger as desktop — both build on release
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install root dependencies
+        run: npm install
+
+      - name: Build web app
+        run: npm run build
+        working-directory: apps/web
+        env:
+          VITE_API_URL: ${{ secrets.ONYX_APP_URL }}/api
+
+      - name: Install Capacitor CLI
+        run: npm install -g @capacitor/cli
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+        working-directory: apps/web
+        env:
+          ONYX_APP_URL: ${{ secrets.ONYX_APP_URL }}
+
+      - name: Make gradlew executable
+        run: chmod +x apps/web/android/gradlew
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug
+        working-directory: apps/web/android
+
+      - name: Rename APK
+        run: |
+          find apps/web/android -name "*.apk" -exec cp {} Onyx.apk \;
+
+      - name: Upload APK to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Onyx.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Onyx-Android-APK
+          path: Onyx.apk
+          retention-days: 30
