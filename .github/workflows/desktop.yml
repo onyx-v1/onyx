@@ -23,10 +23,8 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
-      # Install from root first (workspace hoisting), then desktop-specific
-      - name: Install root dependencies
-        run: npm install
-
+      # apps/desktop is NOT a workspace — installs its own isolated node_modules
+      # This ensures electron-builder finds 7zip-bin and other deps locally
       - name: Install desktop dependencies
         run: npm install
         working-directory: apps/desktop

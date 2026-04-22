@@ -30,16 +30,26 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # Install from root so workspace packages are hoisted correctly
+      # Install from root so all workspace packages are hoisted correctly
       - name: Install dependencies
         run: npm install
 
+      # Build the web app first — Capacitor needs the dist/ output
       - name: Build web app
         run: npm run build
         working-directory: apps/web
         env:
           VITE_API_URL: ${{ secrets.ONYX_APP_URL }}/api
 
+      # Add android platform (generates android/ directory)
+      # This must run before sync — android/ is not committed to the repo
+      - name: Add Android platform
+        run: npx cap add android
+        working-directory: apps/web
+        env:
+          ONYX_APP_URL: ${{ secrets.ONYX_APP_URL }}
+
+      # Sync web assets + config into the android project
       - name: Sync Capacitor
         run: npx cap sync android
         working-directory: apps/web
@@ -49,13 +59,19 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x apps/web/android/gradlew
 
+      # Build unsigned debug APK
       - name: Build debug APK
-        run: ./gradlew assembleDebug
+        run: ./gradlew assembleDebug --no-daemon
         working-directory: apps/web/android
 
+      # Find and rename the APK to a clean filename
       - name: Rename APK
-        run: find apps/web/android -name "*.apk" -exec cp {} Onyx.apk \;
+        run: |
+          APK=$(find apps/web/android -name "*.apk" | head -1)
+          echo "Found APK: $APK"
+          cp "$APK" Onyx.apk
 
+      # Upload to GitHub Release (same release as .exe)
       - name: Upload APK to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -63,6 +79,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Also save as an Actions artifact
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
