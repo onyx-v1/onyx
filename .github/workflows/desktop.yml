@@ -3,10 +3,10 @@ name: Desktop Build
 on:
   push:
     tags:
-      - 'v*'           # triggers on: git tag v1.0.0 && git push --tags
+      - 'v*'
 
 permissions:
-  contents: write      # required to create/update GitHub Releases
+  contents: write
 
 jobs:
   build-windows:
@@ -14,36 +14,32 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      # ── Checkout ─────────────────────────────────────────────────────
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ── Node.js ──────────────────────────────────────────────────────
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
-      # ── Install all desktop deps (including electron-log) ─────────────
-      - name: Install dependencies
+      # Install from root first (workspace hoisting), then desktop-specific
+      - name: Install root dependencies
+        run: npm install
+
+      - name: Install desktop dependencies
         run: npm install
         working-directory: apps/desktop
 
-      # ── Generate icons from PNG ────────────────────────────────────────
       - name: Generate icons
         shell: powershell
         run: powershell -ExecutionPolicy Bypass -File scripts/generate-icons.ps1
         working-directory: apps/desktop
 
-      # ── Compile TypeScript ────────────────────────────────────────────
       - name: Build TypeScript
         run: npm run build
         working-directory: apps/desktop
 
-      # ── Package + publish to GitHub Releases ──────────────────────────
-      # GH_TOKEN   → used by electron-builder to create the Release & upload assets
-      # ONYX_APP_URL → injected into the Electron binary at build time
       - name: Package with electron-builder
         shell: powershell
         env:
@@ -52,7 +48,6 @@ jobs:
         run: npx electron-builder --win --config electron-builder.config.js --publish always
         working-directory: apps/desktop
 
-      # ── Also attach installer as an Actions artifact ───────────────────
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:

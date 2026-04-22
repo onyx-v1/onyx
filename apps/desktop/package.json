@@ -1,22 +1,20 @@
 {
   "name": "@onyx/desktop",
   "version": "1.0.0",
+  "author": "Onyx",
   "description": "Onyx — Windows Desktop Application",
   "private": true,
   "main": "dist/main.js",
   "scripts": {
-    "dev":   "tsc -p tsconfig.json --watch",
     "build": "tsc -p tsconfig.json",
-    "start": "npm run build && electron .",
-    "dist":  "npm run build && electron-builder --win",
-    "dist:unsigned": "npm run build && electron-builder --win --config.win.certificateFile="
+    "dist":  "npm run build && electron-builder --win"
   },
   "dependencies": {
     "electron-updater": "^6.1.7",
     "electron-log":     "^5.1.2"
   },
   "devDependencies": {
-    "electron":         "^29.4.6",
+    "electron":         "29.4.6",
     "electron-builder": "^24.13.3",
     "typescript":       "^5.4.5",
     "@types/node":      "^20.0.0"

@@ -3,7 +3,7 @@ name: Android Build
 on:
   push:
     tags:
-      - 'v*'           # same trigger as desktop — both build on release
+      - 'v*'
 
 permissions:
   contents: write
@@ -17,10 +17,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Capacitor CLI requires Node >= 22
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Setup Java
@@ -29,7 +30,8 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install root dependencies
+      # Install from root so workspace packages are hoisted correctly
+      - name: Install dependencies
         run: npm install
 
       - name: Build web app
@@ -37,9 +39,6 @@ jobs:
         working-directory: apps/web
         env:
           VITE_API_URL: ${{ secrets.ONYX_APP_URL }}/api
-
-      - name: Install Capacitor CLI
-        run: npm install -g @capacitor/cli
 
       - name: Sync Capacitor
         run: npx cap sync android
@@ -55,8 +54,7 @@ jobs:
         working-directory: apps/web/android
 
       - name: Rename APK
-        run: |
-          find apps/web/android -name "*.apk" -exec cp {} Onyx.apk \;
+        run: find apps/web/android -name "*.apk" -exec cp {} Onyx.apk \;
 
       - name: Upload APK to GitHub Release
         uses: softprops/action-gh-release@v2

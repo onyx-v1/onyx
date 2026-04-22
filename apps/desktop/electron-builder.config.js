@@ -6,7 +6,8 @@
 
 /** @type {import('electron-builder').Configuration} */
 module.exports = {
-  appId:       'com.onyx.desktop',
+  appId:          'com.onyx.desktop',
+  electronVersion: '29.4.6',   // pinned — must match devDependencies
   productName: 'Onyx',
 
   // ── Directories ────────────────────────────────────────────────────
