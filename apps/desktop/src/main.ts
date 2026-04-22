@@ -145,6 +145,40 @@ ipcMain.handle('check-for-updates', async () => {
   }
 });
 
+// ── Native push notifications ─────────────────────────────────────────────────
+// Called by the renderer whenever a mention/message arrives while unfocused.
+// Uses Electron's built-in Notification (no extra deps, uses Windows Action Center).
+ipcMain.handle('show-notification', (_event, opts: {
+  title: string;
+  body: string;
+  channelId?: string;
+}) => {
+  const { Notification } = require('electron');
+  if (!Notification.isSupported()) return;
+
+  const notif = new Notification({
+    title:  opts.title,
+    body:   opts.body,
+    icon:   path.join(__dirname, '..', 'resources', 'icon.ico'),
+    silent: false,
+  });
+
+  notif.on('click', () => {
+    // Bring window to front
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+      // Tell the renderer to navigate to the channel that was mentioned
+      if (opts.channelId) {
+        mainWindow.webContents.send('notification-clicked', opts.channelId);
+      }
+    }
+  });
+
+  notif.show();
+});
+
 // ── App lifecycle ────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
   // Remove default menu bar (File / Edit / View / Window / Help)

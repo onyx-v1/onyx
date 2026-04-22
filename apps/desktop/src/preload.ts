@@ -1,28 +1,28 @@
 /**
- * Preload script — runs in an isolated context between main and renderer.
- *
- * Rules:
- *  - Only expose the minimal API surface the web app actually needs
- *  - Never expose raw Node.js / Electron modules to the renderer
- *  - Use contextBridge to whitelist specific capabilities
+ * Preload — minimal, typed bridge between main process and renderer.
  */
 
 import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('__onyx', {
-  /** Platform identifier */
   platform: 'electron' as const,
 
-  /** App version — read from main process (reliable in packaged builds) */
+  // App version from main process (reliable in packaged builds)
   version: (() => {
-    try {
-      // sendSync is safe here — it's just reading a string
-      return ipcRenderer.sendSync('get-version') as string;
-    } catch {
-      return '1.0.0';
-    }
+    try { return ipcRenderer.sendSync('get-version') as string; }
+    catch { return '1.1.0'; }
   })(),
 
-  /** Trigger update check — main process runs electron-updater */
+  // Trigger update check
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+
+  // Show a native Windows notification from the renderer
+  // Returns a promise — resolves once shown, rejects on error
+  showNotification: (opts: { title: string; body: string; channelId?: string }) =>
+    ipcRenderer.invoke('show-notification', opts),
+
+  // Subscribe to notification-click events (user clicks a toast → navigate to channel)
+  onNotificationClick: (cb: (channelId: string) => void) => {
+    ipcRenderer.on('notification-clicked', (_event, channelId: string) => cb(channelId));
+  },
 });
