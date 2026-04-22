@@ -40,13 +40,15 @@ module.exports = {
 
   // ── NSIS installer options ──────────────────────────────────────────
   nsis: {
-    oneClick: true,   // silent install, no wizard screens
-    perMachine: false,  // user-level install (no admin required)
+    oneClick:              true,   // silent install, no wizard screens
+    perMachine:            false,  // user-level install (no admin required)
+    allowElevation:        true,   // allows installer to elevate to kill running process
     allowToChangeInstallationDirectory: false,
     deleteAppDataOnUninstall: false,
     createDesktopShortcut: true,
     createStartMenuShortcut: true,
-    shortcutName: 'Onyx',
+    shortcutName:          'Onyx',
+    warningsAsErrors:      false,  // don't fail if process can't be closed
   },
 
   // ── Auto-update via GitHub Releases ────────────────────────────────
