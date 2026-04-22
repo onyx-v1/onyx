@@ -22,10 +22,12 @@ import path from 'path';
 import { setupUpdater } from './updater';
 
 // ── App URL ──────────────────────────────────────────────────────────────────
-// Change ONYX_APP_URL env var at build time to point to your live deployment.
-const ONYX_APP_URL =
-  process.env.ONYX_APP_URL ||
-  'https://onyx.yourdomain.com'; // ← replace with your Railway URL
+// URL is embedded into package.json at build time by electron-builder
+// via the `extraMetadata.onyxAppUrl` field in electron-builder.config.js.
+// Falls back to the real production URL if somehow missing.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const pkg = require('../package.json') as { onyxAppUrl?: string };
+const ONYX_APP_URL = pkg.onyxAppUrl || 'https://onyx-api0.up.railway.app';
 
 // ── State ────────────────────────────────────────────────────────────────────
 let mainWindow: BrowserWindow | null = null;
