@@ -29,16 +29,6 @@ jobs:
         run: npm install
         working-directory: apps/desktop
 
-      - name: Generate icons (skip if already present)
-        shell: powershell
-        run: |
-          if (Test-Path 'resources/icon.ico') {
-            Write-Host "icon.ico already present — skipping generation"
-          } else {
-            powershell -ExecutionPolicy Bypass -File scripts/generate-icons.ps1
-          }
-        working-directory: apps/desktop
-
       - name: Build TypeScript
         run: npm run build
         working-directory: apps/desktop
