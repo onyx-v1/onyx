@@ -47,3 +47,14 @@ Thumbs.db
 
 # Prisma
 prisma/migrations/
+
+# ── Electron desktop ──────────────────────────────────────────────────
+apps/desktop/dist/
+apps/desktop/release/
+
+# ── Capacitor Android ─────────────────────────────────────────────────
+# The android/ folder is generated — commit it if you want reproducible builds,
+# or ignore it if you prefer to regenerate with `npx cap sync android`
+# apps/web/android/
+# (Currently committed so Android Studio can open it directly)
+apps/web/.capacitor/

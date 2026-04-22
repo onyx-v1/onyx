@@ -1,0 +1,57 @@
+name: Desktop Build
+
+on:
+  push:
+    tags:
+      - 'v*'           # triggers on: git tag v1.0.0 && git push --tags
+
+permissions:
+  contents: write      # needed to upload to GitHub Releases
+
+jobs:
+  build-windows:
+    name: Build Windows (.exe)
+    runs-on: windows-latest
+
+    steps:
+      # ── Checkout ─────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Node.js ──────────────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # ── Install desktop deps ──────────────────────────────────────────
+      - name: Install dependencies
+        run: npm install
+        working-directory: apps/desktop
+
+      # ── Compile TypeScript ────────────────────────────────────────────
+      - name: Build TypeScript
+        run: npm run build
+        working-directory: apps/desktop
+
+      # ── Generate icons ────────────────────────────────────────────────
+      - name: Generate icons
+        run: powershell -ExecutionPolicy Bypass -File scripts/generate-icons.ps1
+        working-directory: apps/desktop
+
+      # ── Package installer ─────────────────────────────────────────────
+      - name: Package with electron-builder
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ONYX_APP_URL: ${{ secrets.ONYX_APP_URL }}    # set this secret in GitHub repo settings
+        run: npx electron-builder --win --config electron-builder.config.js --publish always
+        working-directory: apps/desktop
+
+      # ── Upload artifacts (also available as GH Actions artifacts) ─────
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Onyx-Windows-Installer
+          path: apps/desktop/release/*.exe
+          retention-days: 30
