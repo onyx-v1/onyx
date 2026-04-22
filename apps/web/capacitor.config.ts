@@ -19,11 +19,10 @@ const config: CapacitorConfig = {
   webDir:  'dist',       // fallback web assets (used for local file loading if server.url is removed)
 
   server: {
-    // ── The live URL your users connect to ────────────────────────────
-    // Replace with your actual Railway/Vercel/etc URL
-    url: process.env.ONYX_APP_URL || 'https://onyx.yourdomain.com',
-    cleartext:     false,        // HTTPS enforced — no HTTP fallback
-    androidScheme: 'https',      // use https:// scheme in Android WebView
+    // ── Production URL — always points to the live Railway backend ────
+    url:           'https://onyx-api0.up.railway.app',
+    cleartext:     false,        // HTTPS enforced
+    androidScheme: 'https',
   },
 
   android: {
