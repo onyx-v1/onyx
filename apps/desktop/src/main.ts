@@ -16,7 +16,7 @@
  */
 
 import {
-  app, BrowserWindow, shell, Tray, Menu, nativeImage,
+  app, BrowserWindow, shell, Tray, Menu, nativeImage, ipcMain,
 } from 'electron';
 import path from 'path';
 import { setupUpdater } from './updater';
@@ -128,8 +128,28 @@ function createTray(win: BrowserWindow): Tray {
   return t;
 }
 
+// ── IPC handlers ─────────────────────────────────────────────────────────────
+// Return app version to the renderer (preload reads this synchronously)
+ipcMain.on('get-version', (event) => {
+  event.returnValue = app.getVersion();
+});
+
+// Trigger manual update check from the renderer (Settings → Check for updates)
+ipcMain.handle('check-for-updates', async () => {
+  const { autoUpdater } = await import('electron-updater');
+  try {
+    await autoUpdater.checkForUpdatesAndNotify();
+    return { checking: true };
+  } catch (err: any) {
+    return { error: err.message };
+  }
+});
+
 // ── App lifecycle ────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
+  // Remove default menu bar (File / Edit / View / Window / Help)
+  Menu.setApplicationMenu(null);
+
   mainWindow = createWindow();
   tray = createTray(mainWindow);
 
@@ -145,13 +165,41 @@ app.whenReady().then(() => {
   setupUpdater(mainWindow);
 });
 
-// Mark quit flag so the close handler above allows the window to close
-app.on('before-quit', () => { isQuitting = true; });
+// ── Quit & cleanup ────────────────────────────────────────────────────────────
+// Step 1: mark quitting so the close handler lets the window close
+app.on('before-quit', () => {
+  isQuitting = true;
+});
 
-// macOS: re-create window when clicking dock icon (not needed for Win-only,
-// kept for forward-compatibility)
+// Step 2: destroy tray icon + force-exit once all windows are closed
+// This is the definitive cleanup — no ghost process can survive past here
+app.on('will-quit', (event) => {
+  event.preventDefault(); // hold the quit so we can clean up synchronously
+
+  // Destroy system tray icon (removes it from the taskbar immediately)
+  if (tray && !tray.isDestroyed()) {
+    tray.destroy();
+    tray = null;
+  }
+
+  // Destroy all windows
+  BrowserWindow.getAllWindows().forEach((win) => {
+    if (!win.isDestroyed()) win.destroy();
+  });
+
+  // Force terminate — guarantees no ghost process
+  app.exit(0);
+});
+
+// macOS: re-create window when clicking dock icon
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     mainWindow = createWindow();
   }
 });
+
+// Handle OS-level kill signals (Task Manager, uninstaller, etc.)
+// Ensures the process exits cleanly when terminated externally
+process.on('SIGTERM', () => app.quit());
+process.on('SIGINT',  () => app.quit());
+

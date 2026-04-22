@@ -1,53 +1,127 @@
+##
+## generate-icons.ps1
+## Auto-crops the logo from a non-square PNG, then builds a proper multi-size ICO.
+##
+
 Add-Type -AssemblyName System.Drawing
 
-$src  = Join-Path $PSScriptRoot '..\resources\icon.png'
+$src  = Resolve-Path (Join-Path $PSScriptRoot '..\resources\icon.png')
 $ico  = Join-Path $PSScriptRoot '..\resources\icon.ico'
 $tray = Join-Path $PSScriptRoot '..\resources\tray.ico'
 
-# Load source image (JPEG or PNG) and resize to 256x256
-$img = [System.Drawing.Image]::FromFile((Resolve-Path $src))
-$bmp = New-Object System.Drawing.Bitmap($img, 256, 256)
+Write-Host "Source: $src"
 
-# Export as PNG bytes into memory
-$ms = New-Object System.IO.MemoryStream
-$bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
-$pngBytes = $ms.ToArray()
-$ms.Dispose()
-$bmp.Dispose()
-$img.Dispose()
+$srcImg = [System.Drawing.Image]::FromFile([string]$src)
+Write-Host "Original size: $($srcImg.Width) x $($srcImg.Height)"
 
-# Build ICO binary (PNG-in-ICO, valid on Windows Vista+)
-$dataOffset = [uint32]22      # 6 (ICONDIR) + 16 (ICONDIRENTRY)
-$buf = New-Object byte[] ($dataOffset + $pngBytes.Length)
+# ── Step 1: Smart crop — find the tightest bounding box around non-white pixels ──
+$bmpSrc = New-Object System.Drawing.Bitmap($srcImg)
+$minX = $bmpSrc.Width; $minY = $bmpSrc.Height; $maxX = 0; $maxY = 0
 
-# ICONDIR: reserved=0, type=1 (icon), count=1
-$buf[0] = 0; $buf[1] = 0
-$buf[2] = 1; $buf[3] = 0
-$buf[4] = 1; $buf[5] = 0
+for ($y = 0; $y -lt $bmpSrc.Height; $y++) {
+    for ($x = 0; $x -lt $bmpSrc.Width; $x++) {
+        $pixel = $bmpSrc.GetPixel($x, $y)
+        # Consider non-white / non-transparent pixels as "logo"
+        $isBackground = ($pixel.A -lt 10) -or ($pixel.R -gt 245 -and $pixel.G -gt 245 -and $pixel.B -gt 245)
+        if (-not $isBackground) {
+            if ($x -lt $minX) { $minX = $x }
+            if ($y -lt $minY) { $minY = $y }
+            if ($x -gt $maxX) { $maxX = $x }
+            if ($y -gt $maxY) { $maxY = $y }
+        }
+    }
+}
 
-# ICONDIRENTRY: width=0 (256), height=0 (256), colorCount=0, reserved=0
-$buf[6]  = 0   # width  (0 = 256)
-$buf[7]  = 0   # height (0 = 256)
-$buf[8]  = 0   # color count
-$buf[9]  = 0   # reserved
-# planes = 1
-$buf[10] = 1; $buf[11] = 0
-# bit count = 32
-$buf[12] = 32; $buf[13] = 0
-# image data size (little-endian uint32)
-$sizeBytes = [BitConverter]::GetBytes([uint32]$pngBytes.Length)
-$buf[14] = $sizeBytes[0]; $buf[15] = $sizeBytes[1]
-$buf[16] = $sizeBytes[2]; $buf[17] = $sizeBytes[3]
-# image data offset (little-endian uint32)
-$offBytes = [BitConverter]::GetBytes($dataOffset)
-$buf[18] = $offBytes[0]; $buf[19] = $offBytes[1]
-$buf[20] = $offBytes[2]; $buf[21] = $offBytes[3]
+Write-Host "Logo bounds: ($minX, $minY) → ($maxX, $maxY)"
 
-# Copy PNG data
-[System.Buffer]::BlockCopy($pngBytes, 0, $buf, $dataOffset, $pngBytes.Length)
+# Add a small padding (5% of the logo size on each side)
+$logoW   = $maxX - $minX
+$logoH   = $maxY - $minY
+$pad     = [int]([Math]::Max($logoW, $logoH) * 0.06)
+$cropX   = [Math]::Max(0, $minX - $pad)
+$cropY   = [Math]::Max(0, $minY - $pad)
+$cropW   = [Math]::Min($bmpSrc.Width  - $cropX, $logoW + $pad * 2)
+$cropH   = [Math]::Min($bmpSrc.Height - $cropY, $logoH + $pad * 2)
+
+# Make the crop square (take the larger side)
+$squareSide = [Math]::Max($cropW, $cropH)
+# Center the square crop
+$cropX = [Math]::Max(0, $minX - [int](($squareSide - $logoW) / 2))
+$cropY = [Math]::Max(0, $minY - [int](($squareSide - $logoH) / 2))
+
+$cropRect = New-Object System.Drawing.Rectangle($cropX, $cropY, $squareSide, $squareSide)
+Write-Host "Crop rect: $cropX, $cropY  ${squareSide}x${squareSide}"
+
+# Crop to square logo
+$cropped = $bmpSrc.Clone($cropRect, $bmpSrc.PixelFormat)
+$bmpSrc.Dispose()
+$srcImg.Dispose()
+
+# ── Step 2: Render each ICO size with high-quality resampling ──────────────────
+$sizes     = @(256, 128, 64, 48, 32, 16)
+$pngChunks = @()
+
+foreach ($size in $sizes) {
+    $bmp = New-Object System.Drawing.Bitmap($size, $size, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+    $g   = [System.Drawing.Graphics]::FromImage($bmp)
+    $g.Clear([System.Drawing.Color]::Transparent)
+    $g.InterpolationMode  = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+    $g.SmoothingMode      = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+    $g.PixelOffsetMode    = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+    $g.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
+    $g.DrawImage($cropped, 0, 0, $size, $size)
+    $g.Dispose()
+
+    $ms = New-Object System.IO.MemoryStream
+    $bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
+    $pngChunks += , $ms.ToArray()
+    $ms.Dispose()
+    $bmp.Dispose()
+    Write-Host "  Rendered ${size}x${size}"
+}
+$cropped.Dispose()
+
+# ── Step 3: Build multi-size ICO binary ───────────────────────────────────────
+$count      = $sizes.Count
+$dataOffset = 6 + (16 * $count)
+$totalSize  = $dataOffset
+foreach ($c in $pngChunks) { $totalSize += $c.Length }
+
+$buf = New-Object byte[] $totalSize
+$pos = 0
+
+# ICONDIR header
+$buf[$pos]=0; $buf[$pos+1]=0; $buf[$pos+2]=1; $buf[$pos+3]=0
+$buf[$pos+4]=[byte]$count; $buf[$pos+5]=0
+$pos += 6
+
+# ICONDIRENTRY per image
+$imgOffset = $dataOffset
+for ($i = 0; $i -lt $count; $i++) {
+    $sz    = $sizes[$i]
+    $chunk = $pngChunks[$i]
+    $icoSz = if ($sz -ge 256) { 0 } else { $sz }
+
+    $buf[$pos]=$icoSz; $buf[$pos+1]=$icoSz
+    $buf[$pos+2]=0; $buf[$pos+3]=0
+    $buf[$pos+4]=1; $buf[$pos+5]=0
+    $buf[$pos+6]=32; $buf[$pos+7]=0
+    [Buffer]::BlockCopy([BitConverter]::GetBytes([uint32]$chunk.Length), 0, $buf, $pos+8,  4)
+    [Buffer]::BlockCopy([BitConverter]::GetBytes([uint32]$imgOffset),   0, $buf, $pos+12, 4)
+    $pos       += 16
+    $imgOffset += $chunk.Length
+}
+
+# PNG data
+foreach ($c in $pngChunks) {
+    [Buffer]::BlockCopy($c, 0, $buf, $pos, $c.Length)
+    $pos += $c.Length
+}
 
 [System.IO.File]::WriteAllBytes($ico,  $buf)
 [System.IO.File]::WriteAllBytes($tray, $buf)
 
-Write-Host "icon.ico  generated ($($buf.Length) bytes)"
-Write-Host "tray.ico  generated ($($buf.Length) bytes)"
+Write-Host ""
+Write-Host "icon.ico  -> $ico  ($totalSize bytes, $count sizes)"
+Write-Host "tray.ico  -> $tray ($totalSize bytes, $count sizes)"
+Write-Host "Done!"
