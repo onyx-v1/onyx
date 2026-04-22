@@ -177,7 +177,6 @@ ipcMain.handle('show-notification', (_event, opts: {
     body:   opts.body,
     icon:   resourcePath('icon.ico'),
     silent: false,
-    appID:  'com.onyx.desktop',   // ensures correct app grouping in Action Center
   });
 
   notif.on('click', () => {
