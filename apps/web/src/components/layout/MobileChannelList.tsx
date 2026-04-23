@@ -43,15 +43,17 @@ export function MobileChannelList() {
       position: 'fixed', inset: 0,
       display: 'flex', flexDirection: 'column',
       background: '#0f0f0f',
-      paddingTop:    'env(safe-area-inset-top)',
-      paddingBottom: 'env(safe-area-inset-bottom)',
+      // NO paddingTop here — background must bleed under the status bar.
+      // Each section handles its own safe-area padding.
     }}>
 
-      {/* ── Top bar ──────────────────────────────────────────────────── */}
+      {/* ── Top bar — extends UNDER status bar via safe-area-inset-top ── */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 12,
-        padding: '0 16px',
-        height: 60,
+        // paddingTop absorbs the status bar height; content aligns below icons
+        paddingTop: 'calc(env(safe-area-inset-top) + 10px)',
+        paddingBottom: 10,
+        paddingLeft: 16, paddingRight: 16,
         flexShrink: 0,
         background: '#0f0f0f',
         borderBottom: '1px solid rgba(255,255,255,0.06)',
@@ -167,10 +169,11 @@ export function MobileChannelList() {
         )}
       </div>
 
-      {/* ── Bottom profile bar ────────────────────────────────────── */}
+      {/* ── Bottom profile bar ─────────────────────────────────────────────────────────────── */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 12,
-        padding: '12px 16px',
+        paddingTop: 12, paddingLeft: 16, paddingRight: 16,
+        paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)',
         background: '#141414',
         borderTop: '1px solid rgba(255,255,255,0.06)',
         flexShrink: 0,
