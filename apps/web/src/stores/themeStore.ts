@@ -20,9 +20,9 @@ export const THEMES: ThemeConfig[] = [
   },
   {
     id:          'purple',
-    label:       'Purple',
-    description: 'Deep purple with vibrant accents',
-    swatches:    ['#0e0a1a', '#a695fa'],
+    label:       'OLED Purple',
+    description: 'Pure black with vibrant purple branding',
+    swatches:    ['#000000', '#9d8fff'],
   },
 ];
 

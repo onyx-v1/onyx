@@ -48,33 +48,34 @@
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-/* ─── THEME: Deep Purple ───────────────────────────────────────────────────── */
+/* ─── THEME: OLED Black + Purple ──────────────────────────────────────────── */
+/* Backgrounds are PURE BLACK — purple shows ONLY on accents, actives, icons  */
 [data-theme="purple"] {
-  /* ── Surfaces — OLED-dark with rich purple undertone ─────────── */
-  --color-base:     #0d0a1a;   /* near-black purple */
-  --color-panel:    #120e22;   /* main chat bg */
-  --color-hover:    #1a1535;   /* hover rows */
-  --color-active:   #221b45;   /* selected item */
-  --color-elevated: #181230;   /* modals / dropdowns */
-  --color-input:    #100c1f;   /* input fields */
-  --color-border:   rgba(139,124,248,0.12); /* purple-tinted dividers */
+  /* ── Surfaces — TRUE OLED BLACK ──────────────────────────────── */
+  --color-base:     #000000;              /* header + sidebar: pure black */
+  --color-panel:    #000000;              /* chat panel: pure black */
+  --color-hover:    #0e0e0e;              /* hover: barely-visible lift */
+  --color-active:   rgba(139,124,248,0.10); /* selected: faint purple glow only */
+  --color-elevated: #0c0c0c;             /* modals / dropdowns */
+  --color-input:    #080808;              /* inputs: near-black */
+  --color-border:   rgba(255,255,255,0.06); /* same subtle white dividers */
 
-  /* ── Brand — brighter purple accent for purple bg ────────────── */
-  --color-accent:       #a695fa;
-  --color-accent-hover: #c4b5fc;
-  --color-accent-muted: rgba(166,149,250,0.18);
+  /* ── Brand — vibrant purple that pops on OLED black ─────────── */
+  --color-accent:       #9d8fff;           /* bright purple, max contrast on #000 */
+  --color-accent-hover: #b8aaff;
+  --color-accent-muted: rgba(157,143,255,0.12);
 
-  /* ── Text ─────────────────────────────────────────────────────── */
-  --color-primary: #ede9ff;   /* slightly purple-tinted white */
-  --color-muted:   #9d95c4;
-  --color-subtle:  #5a5480;
+  /* ── Text — pure white on black ─────────────────────────────── */
+  --color-primary: #ffffff;
+  --color-muted:   #8a8a8a;
+  --color-subtle:  #505050;
 
   /* ── Status (unchanged) ───────────────────────────────────────── */
   --color-online:  #3ecf8e;
   --color-danger:  #f04040;
   --color-warning: #f59e0b;
 
-  /* ── Layout / Radii / Font — inherit from :root ───────────────── */
+  /* ── Layout / Radii / Font ───────────────────────────────────── */
   --size-header:  62px;
   --size-sidebar: 248px;
   --radius-panel:   16px;
