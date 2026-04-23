@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   X, LogOut, Monitor, Smartphone,
-  RefreshCw, CheckCircle, AlertCircle, Download, Zap,
+  RefreshCw, CheckCircle, AlertCircle, Download, Zap, Palette,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { Avatar } from './Avatar';
 import { platform } from '../../platform';
 import type { UpdateState } from '../../platform';
+import { useThemeStore, THEMES } from '../../stores/themeStore';
 
 const GITHUB_REPO      = 'https://github.com/onyx-v1/onyx';
 const DOWNLOAD_WINDOWS = `${GITHUB_REPO}/releases/latest/download/Onyx-Setup.exe`;
@@ -25,6 +26,7 @@ interface Props { onClose: () => void; }
 
 export function SettingsModal({ onClose }: Props) {
   const { user, logout } = useAuthStore();
+  const { theme, setTheme } = useThemeStore();
   const overlayRef = useRef<HTMLDivElement>(null);
   const [updateStatus, setUpdateStatus] = useState<UpdateState | null>(null);
   const [manualChecking, setManualChecking] = useState(false);
@@ -253,6 +255,65 @@ export function SettingsModal({ onClose }: Props) {
             )}
           </div>
         </div>
+
+        {/* Appearance — Theme switcher */}
+        <div style={{ padding: '12px 16px 14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
+            <Palette size={13} style={{ color: 'var(--color-muted)' }} />
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Appearance
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            {THEMES.map((t) => {
+              const active = theme === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setTheme(t.id)}
+                  title={t.description}
+                  style={{
+                    flex: 1, display: 'flex', flexDirection: 'column', gap: 8,
+                    padding: '10px 10px 9px',
+                    borderRadius: 10,
+                    border: active
+                      ? '2px solid var(--color-accent)'
+                      : '2px solid rgba(255,255,255,0.07)',
+                    background: active
+                      ? 'var(--color-accent-muted)'
+                      : 'rgba(255,255,255,0.03)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    alignItems: 'flex-start',
+                  }}
+                >
+                  {/* Mini swatch preview */}
+                  <div style={{
+                    width: '100%', height: 34, borderRadius: 7, overflow: 'hidden',
+                    display: 'flex', border: '1px solid rgba(255,255,255,0.08)',
+                  }}>
+                    {/* Base surface */}
+                    <div style={{ flex: 1, background: t.swatches[0] }} />
+                    {/* Accent strip */}
+                    <div style={{ width: 22, background: t.swatches[1] }} />
+                  </div>
+
+                  {/* Label */}
+                  <span style={{
+                    fontSize: 11, fontWeight: active ? 700 : 600,
+                    color: active ? 'var(--color-accent)' : 'var(--color-muted)',
+                    textAlign: 'left',
+                  }}>
+                    {t.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 16px' }} />
 
         {/* Desktop: version + update */}
         {platform.isDesktop && renderUpdateSection()}

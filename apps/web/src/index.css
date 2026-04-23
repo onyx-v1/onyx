@@ -8,15 +8,17 @@
    DESIGN TOKENS — every value the app uses, defined here as CSS variables.
    Change here → updates everywhere. No hunting through components.
    ═══════════════════════════════════════════════════════════════════════════ */
-:root {
+/* ─── DEFAULT: Pure Dark ───────────────────────────────────────────────────── */
+:root,
+[data-theme="dark"] {
   /* ── Surfaces ─────────────────────────────────────────────────── */
-  --color-base:     #181818;   /* header + sidebar background */
-  --color-panel:    #202020;   /* main content area */
-  --color-hover:    #252525;   /* item hover state */
-  --color-active:   #2c2c2c;   /* active/selected item */
-  --color-elevated: #2a2a2a;   /* modals, dropdowns, tooltips */
-  --color-input:    #1e1e1e;   /* all input backgrounds */
-  --color-border:   rgba(255,255,255,0.06); /* subtle dividers */
+  --color-base:     #181818;
+  --color-panel:    #202020;
+  --color-hover:    #252525;
+  --color-active:   #2c2c2c;
+  --color-elevated: #2a2a2a;
+  --color-input:    #1e1e1e;
+  --color-border:   rgba(255,255,255,0.06);
 
   /* ── Brand ────────────────────────────────────────────────────── */
   --color-accent:       #8b7cf8;
@@ -44,6 +46,58 @@
 
   /* ── Typography ───────────────────────────────────────────────── */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* ─── THEME: Deep Purple ───────────────────────────────────────────────────── */
+[data-theme="purple"] {
+  /* ── Surfaces — OLED-dark with rich purple undertone ─────────── */
+  --color-base:     #0d0a1a;   /* near-black purple */
+  --color-panel:    #120e22;   /* main chat bg */
+  --color-hover:    #1a1535;   /* hover rows */
+  --color-active:   #221b45;   /* selected item */
+  --color-elevated: #181230;   /* modals / dropdowns */
+  --color-input:    #100c1f;   /* input fields */
+  --color-border:   rgba(139,124,248,0.12); /* purple-tinted dividers */
+
+  /* ── Brand — brighter purple accent for purple bg ────────────── */
+  --color-accent:       #a695fa;
+  --color-accent-hover: #c4b5fc;
+  --color-accent-muted: rgba(166,149,250,0.18);
+
+  /* ── Text ─────────────────────────────────────────────────────── */
+  --color-primary: #ede9ff;   /* slightly purple-tinted white */
+  --color-muted:   #9d95c4;
+  --color-subtle:  #5a5480;
+
+  /* ── Status (unchanged) ───────────────────────────────────────── */
+  --color-online:  #3ecf8e;
+  --color-danger:  #f04040;
+  --color-warning: #f59e0b;
+
+  /* ── Layout / Radii / Font — inherit from :root ───────────────── */
+  --size-header:  62px;
+  --size-sidebar: 248px;
+  --radius-panel:   16px;
+  --radius-control: 10px;
+  --radius-sm:       6px;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* ── Smooth theme crossfade (only backgrounds + text, not animations) ── */
+*, *::before, *::after {
+  transition:
+    background-color 0.25s ease,
+    border-color     0.25s ease,
+    color            0.2s  ease;
+}
+/* Restore instant transitions for interactive states */
+button, a, input, textarea, [role="button"] {
+  transition:
+    background-color 0.12s ease,
+    border-color     0.12s ease,
+    color            0.1s  ease,
+    opacity          0.1s  ease,
+    transform        0.12s ease;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
