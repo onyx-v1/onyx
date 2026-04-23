@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Navigate, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Hash, Menu, Search } from 'lucide-react';
+import { ArrowLeft, Hash, Volume2, Pin } from 'lucide-react';
 import { useChannelStore } from '../stores/channelStore';
 import { useMessages } from '../hooks/useMessages';
 import { useMobileCtx } from '../context/MobileContext';
@@ -8,10 +8,10 @@ import { MessageList } from '../components/messages/MessageList';
 import { MessageInput } from '../components/messages/MessageInput';
 import { MessageSelectionBar } from '../components/messages/MessageSelectionBar';
 import { TypingIndicator } from '../components/messages/TypingIndicator';
+import { PinnedPanel } from '../components/ui/PinnedPanel';
 import { useSelectionStore } from '../stores/selectionStore';
 import { Message } from '@onyx/types';
 
-/* ── Route guard ─────────────────────────────────────────────────────── */
 export function ChannelPage() {
   const { channelId }              = useParams<{ channelId: string }>();
   const { setActiveChannel, markRead } = useChannelStore();
@@ -26,13 +26,13 @@ export function ChannelPage() {
   return <ChannelView key={channelId} channelId={channelId} />;
 }
 
-/* ── Channel view ────────────────────────────────────────────────────── */
 function ChannelView({ channelId }: { channelId: string }) {
-  const { channels }               = useChannelStore();
-  const { clearSelection }         = useSelectionStore();
-  const { isMobile, openDrawer }   = useMobileCtx();
-  const navigate                   = useNavigate();
-  const [replyTo, setReplyTo]      = useState<Message | null>(null);
+  const { channels }             = useChannelStore();
+  const { clearSelection }       = useSelectionStore();
+  const { isMobile }             = useMobileCtx();
+  const navigate                 = useNavigate();
+  const [replyTo, setReplyTo]    = useState<Message | null>(null);
+  const [pinnedOpen, setPinnedOpen] = useState(false);
   const { messages, hasMore, isLoading, loadMore, error } = useMessages(channelId);
 
   const channel = useMemo(
@@ -42,76 +42,119 @@ function ChannelView({ channelId }: { channelId: string }) {
 
   useEffect(() => { clearSelection(); }, [channelId]);
 
-  const handleReply = useCallback((msg: Message) => setReplyTo(msg), []);
-  const cancelReply = useCallback(() => setReplyTo(null), []);
+  const handleReply  = useCallback((msg: Message) => setReplyTo(msg), []);
+  const cancelReply  = useCallback(() => setReplyTo(null), []);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{
+      display: 'flex', flexDirection: 'column', height: '100%',
+      background: isMobile ? '#0f0f0f' : undefined,
+    }}>
 
-      {/* ── Mobile top bar (replaces desktop Header) ──────────────── */}
+      {/* ── Mobile header ─────────────────────────────────────────── */}
       {isMobile && (
-        <div
-          style={{
-            display: 'flex', alignItems: 'center', gap: 10,
-            padding: '0 12px',
-            height: 52,
-            flexShrink: 0,
-            background: 'var(--color-base)',
-            borderBottom: '1px solid var(--color-border)',
-          }}
-        >
-          {/* Hamburger — open sidebar drawer */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 0,
+          height: 56, flexShrink: 0,
+          background: '#141414',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          paddingTop: 'env(safe-area-inset-top)',
+        }}>
+          {/* Back arrow */}
           <button
-            onClick={openDrawer}
-            title="Channels"
+            onClick={() => navigate('/')}
             style={{
-              width: 36, height: 36, borderRadius: 8,
+              width: 52, height: 56,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: 'rgba(255,255,255,0.06)',
-              color: 'var(--color-muted)',
-            }}
+              flexShrink: 0,
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--color-accent)',
+              WebkitTapHighlightColor: 'transparent',
+            } as React.CSSProperties}
           >
-            <Menu size={18} />
+            <ArrowLeft size={22} />
           </button>
 
-          {/* Channel name */}
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-            <span style={{ color: 'var(--color-muted)', fontSize: 16 }}>
-              {channel?.type === 'VOICE' ? '🔊' : '#'}
-            </span>
-            <span
-              style={{
-                fontSize: 15, fontWeight: 700,
-                color: 'var(--color-primary)',
-                overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
-              }}
-            >
+          {/* Channel icon + name */}
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: 9, flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: channel?.type === 'VOICE'
+                ? 'rgba(62,207,142,0.12)'
+                : 'rgba(139,124,248,0.12)',
+            }}>
+              {channel?.type === 'VOICE' ? (
+                <Volume2 size={15} style={{ color: 'var(--color-online)' }} />
+              ) : (
+                <Hash size={15} style={{ color: 'var(--color-accent)' }} />
+              )}
+            </div>
+            <span style={{
+              fontSize: 16, fontWeight: 700,
+              color: '#f2f2f2',
+              overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+            }}>
               {channel?.name ?? '…'}
             </span>
           </div>
+
+          {/* Pin button (text channels only) */}
+          {channel?.type === 'TEXT' && (
+            <div style={{ position: 'relative', marginRight: 8 }}>
+              <button
+                onClick={() => setPinnedOpen((v) => !v)}
+                style={{
+                  width: 38, height: 38,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  borderRadius: 10,
+                  background: pinnedOpen ? 'rgba(139,124,248,0.12)' : 'rgba(255,255,255,0.06)',
+                  border: 'none', cursor: 'pointer',
+                  WebkitTapHighlightColor: 'transparent',
+                } as React.CSSProperties}
+              >
+                <Pin
+                  size={15}
+                  style={{
+                    transform: 'rotate(45deg)',
+                    color: pinnedOpen ? 'var(--color-accent)' : '#a0a0a0',
+                  }}
+                />
+              </button>
+              {pinnedOpen && (
+                <div style={{ position: 'fixed', top: 56, right: 8, left: 8, zIndex: 100 }}>
+                  <PinnedPanel onClose={() => setPinnedOpen(false)} />
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
-      {/* ── Message area ──────────────────────────────────────────── */}
+      {/* ── Message area ─────────────────────────────────────────── */}
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {error ? (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
             <p style={{ fontSize: 14, color: 'var(--color-danger)' }}>Failed to load messages.</p>
-            <button onClick={loadMore} className="btn-ghost" style={{ fontSize: 13, color: 'var(--color-accent)' }}>
+            <button onClick={loadMore} style={{ fontSize: 13, color: 'var(--color-accent)', background: 'none', border: 'none', cursor: 'pointer' }}>
               Retry
             </button>
           </div>
         ) : messages.length === 0 && !isLoading ? (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '0 32px' }}>
-            <div style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(139,124,248,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Hash size={24} style={{ color: 'var(--color-accent)' }} />
+            <div style={{
+              width: 60, height: 60, borderRadius: 18,
+              background: 'rgba(139,124,248,0.10)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Hash size={26} style={{ color: 'var(--color-accent)' }} />
             </div>
             <div style={{ textAlign: 'center' }}>
-              <h3 style={{ fontSize: 17, fontWeight: 700, color: 'var(--color-primary)', margin: 0 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 700, color: '#f2f2f2', margin: '0 0 4px' }}>
                 Welcome to #{channel?.name}
               </h3>
-              <p style={{ fontSize: 14, color: 'var(--color-muted)', marginTop: 4 }}>
-                This is the beginning of the channel. Say something!
+              <p style={{ fontSize: 13, color: '#606060', margin: 0 }}>
+                This is the beginning of this channel.
               </p>
             </div>
           </div>
@@ -126,9 +169,9 @@ function ChannelView({ channelId }: { channelId: string }) {
         )}
       </div>
 
-      {/* ── Input area ────────────────────────────────────────────── */}
+      {/* ── Input area ──────────────────────────────────────────── */}
       <TypingIndicator channelId={channelId} />
-      <div style={{ position: 'relative' }}>
+      <div style={{ position: 'relative', flexShrink: 0 }}>
         <MessageSelectionBar channelId={channelId} />
         <MessageInput
           channelId={channelId}

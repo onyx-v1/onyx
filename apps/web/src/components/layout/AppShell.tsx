@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useSocket, getSocket } from '../../hooks/useSocket';
 import { useSocketStore } from '../../stores/socketStore';
@@ -21,36 +21,31 @@ export function AppShell() {
   useMentionNotifications();
   useUnreadTracker();
 
-  const isMobile      = useIsMobile();
-  const [drawerOpen, setDrawerOpen] = useState(false);
-
-  const navigate      = useNavigate();
-  const connectionId  = useSocketStore((s) => s.connectionId);
+  const isMobile     = useIsMobile();
+  const navigate     = useNavigate();
+  const connectionId = useSocketStore((s) => s.connectionId);
   const { fetchCommunity, activeChannelId, channels, setChannels } = useChannelStore();
-  const fetchMembers  = useMembersStore((s) => s.fetchMembers);
+  const fetchMembers = useMembersStore((s) => s.fetchMembers);
 
-  const openDrawer   = useCallback(() => setDrawerOpen(true),  []);
-  const closeDrawer  = useCallback(() => setDrawerOpen(false), []);
-  const toggleDrawer = useCallback(() => setDrawerOpen((v) => !v), []);
+  // No-op on mobile — MobileContext still expected by Sidebar (desktop use)
+  const noop = useCallback(() => {}, []);
 
-  // Close drawer automatically when navigating to a channel on mobile
-  useEffect(() => { if (isMobile) closeDrawer(); }, [activeChannelId]);
-
-  /* ── Load community + members on mount ─────────────────────────── */
+  /* ── Load community + members on mount ───────────────────────── */
   useEffect(() => {
     fetchCommunity().catch(() => {});
     fetchMembers();
   }, []);
 
-  /* ── Navigate to first channel once loaded ──────────────────────── */
+  /* ── Desktop only: navigate to first channel at root ─────────── */
   useEffect(() => {
+    if (isMobile) return;                             // mobile has its own home screen
     if (!activeChannelId || !channels.length) return;
     if (window.location.pathname !== '/') return;
     const ch = channels.find((c) => c.id === activeChannelId);
     if (ch) navigate(`/${ch.type === 'VOICE' ? 'voice' : 'channel'}/${ch.id}`, { replace: true });
-  }, [activeChannelId, channels]);
+  }, [isMobile, activeChannelId, channels]);
 
-  /* ── channels:updated ───────────────────────────────────────────── */
+  /* ── channels:updated ────────────────────────────────────────── */
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
@@ -60,68 +55,32 @@ export function AppShell() {
   }, [connectionId]);
 
   return (
-    <MobileContext.Provider value={{ isMobile, drawerOpen, openDrawer, closeDrawer, toggleDrawer }}>
+    <MobileContext.Provider value={{
+      isMobile,
+      drawerOpen:   false,
+      openDrawer:   noop,
+      closeDrawer:  noop,
+      toggleDrawer: noop,
+    }}>
       <div className="h-screen overflow-hidden">
 
-        {/* ── Desktop: fixed header — hidden on mobile (ChannelPage has its own header) ── */}
+        {/* ── Desktop only: header + sidebar ──────────────────────── */}
         {!isMobile && <Header />}
-
-        {/* ── Desktop: always-visible sidebar ─────────────────────────────────────────── */}
         {!isMobile && <Sidebar />}
 
-        {/* ── Mobile: slide-in drawer overlay ─────────────────────────────────────────── */}
-        {isMobile && (
-          <>
-            {/* Backdrop */}
-            {drawerOpen && (
-              <div
-                onClick={closeDrawer}
-                style={{
-                  position: 'fixed', inset: 0, zIndex: 40,
-                  background: 'rgba(0,0,0,0.55)',
-                  backdropFilter: 'blur(4px)',
-                  animation: 'fadeIn 0.18s ease-out',
-                }}
-              />
-            )}
-            {/* Drawer panel */}
-            <div
-              style={{
-                position: 'fixed', top: 0, left: 0, bottom: 0,
-                width: 'min(80vw, 300px)',
-                background: 'var(--color-base)',
-                borderRight: '1px solid var(--color-border)',
-                zIndex: 50,
-                transform: drawerOpen ? 'translateX(0)' : 'translateX(-100%)',
-                transition: 'transform 0.25s cubic-bezier(0.4,0,0.2,1)',
-                display: 'flex', flexDirection: 'column',
-                overflowY: 'auto',
-                // iOS safe area
-                paddingTop: 'env(safe-area-inset-top)',
-                paddingBottom: 'env(safe-area-inset-bottom)',
-              }}
-            >
-              <Sidebar />
-            </div>
-          </>
-        )}
-
-        {/* ── Main content ─────────────────────────────────────────────────────────────── */}
+        {/* ── Main content ─────────────────────────────────────────── */}
         <main
           style={isMobile ? {
-            // Mobile: full screen, no header offset
             position: 'fixed', inset: 0,
-            background: 'var(--color-panel)',
+            background: '#0f0f0f',
             display: 'flex', flexDirection: 'column',
-            paddingTop:    'env(safe-area-inset-top)',
-            paddingBottom: 'env(safe-area-inset-bottom)',
           } : undefined}
           className={isMobile ? undefined : 'app-main'}
         >
           <Outlet />
         </main>
 
-        {/* ── Global overlays ──────────────────────────────────────────────────────────── */}
+        {/* ── Global overlays ──────────────────────────────────────── */}
         <MentionToasts />
         <DeleteConfirmModal />
         <DeleteToast />
