@@ -19,8 +19,8 @@ export function Header() {
       {/* Server name */}
       <div className="flex items-center gap-2 flex-shrink-0" style={{ width: 'var(--size-sidebar)' }}>
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-accent flex items-center justify-center">
-            <span className="text-white text-xs font-bold">O</span>
+          <div className="w-6 h-6 rounded-md overflow-hidden flex items-center justify-center bg-transparent">
+            <img src="/onyx-logo.png" alt="Onyx" className="w-full h-full object-cover" />
           </div>
           <span className="font-bold text-base text-primary">{communityName}</span>
         </div>

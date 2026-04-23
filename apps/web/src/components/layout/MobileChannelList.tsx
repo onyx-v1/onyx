@@ -59,12 +59,11 @@ export function MobileChannelList() {
         {/* Community logo */}
         <div style={{
           width: 36, height: 36, borderRadius: 10,
-          background: 'linear-gradient(135deg, #8b7cf8, #6355d1)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           flexShrink: 0,
-          boxShadow: '0 2px 8px rgba(139,124,248,0.35)',
+          overflow: 'hidden',
         }}>
-          <span style={{ color: '#fff', fontSize: 16, fontWeight: 800 }}>O</span>
+          <img src="/onyx-logo.png" alt="Onyx Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
 
         {/* Community name */}
@@ -76,34 +75,6 @@ export function MobileChannelList() {
         }}>
           {communityName || 'Onyx'}
         </span>
-
-        {/* Admin button (if admin) */}
-        {user?.role === 'ADMIN' && (
-          <button
-            onClick={() => navigate('/admin')}
-            style={{
-              width: 36, height: 36, borderRadius: 10,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: 'rgba(139,124,248,0.12)',
-              border: 'none', cursor: 'pointer',
-            }}
-          >
-            <Shield size={16} style={{ color: 'var(--color-accent)' }} />
-          </button>
-        )}
-
-        {/* Settings button */}
-        <button
-          onClick={() => setShowSettingsModal(true)}
-          style={{
-            width: 36, height: 36, borderRadius: 10,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'rgba(255,255,255,0.06)',
-            border: 'none', cursor: 'pointer',
-          }}
-        >
-          <Settings size={16} style={{ color: '#a0a0a0' }} />
-        </button>
       </div>
 
       {/* ── Active voice banner ────────────────────────────────────── */}
@@ -235,6 +206,36 @@ export function MobileChannelList() {
           }}>
             @{user?.username}
           </p>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Admin button (if admin) */}
+          {user?.role === 'ADMIN' && (
+            <button
+              onClick={() => navigate('/admin')}
+              style={{
+                width: 36, height: 36, borderRadius: 10,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'rgba(139,124,248,0.12)',
+                border: 'none', cursor: 'pointer',
+              }}
+            >
+              <Shield size={16} style={{ color: 'var(--color-accent)' }} />
+            </button>
+          )}
+
+          {/* Settings button */}
+          <button
+            onClick={() => setShowSettingsModal(true)}
+            style={{
+              width: 36, height: 36, borderRadius: 10,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(255,255,255,0.06)',
+              border: 'none', cursor: 'pointer',
+            }}
+          >
+            <Settings size={16} style={{ color: '#a0a0a0' }} />
+          </button>
         </div>
       </div>
 

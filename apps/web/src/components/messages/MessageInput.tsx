@@ -68,7 +68,7 @@ export function MessageInput({ channelId, replyTo, onCancelReply }: Props) {
     if (textareaRef.current) {
       textareaRef.current.value = '';
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.focus();
+      if (!isMobile) textareaRef.current.focus();   // never auto-open keyboard on mobile
     }
     setHasContent(false);
     setMentionQuery(null);

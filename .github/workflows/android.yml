@@ -49,6 +49,11 @@ jobs:
         env:
           ONYX_APP_URL: ${{ secrets.ONYX_APP_URL }}
 
+      # Generate launcher icons + splash from assets/icon.png using the real Onyx logo
+      - name: Generate Android icons
+        run: npx @capacitor/assets generate --android
+        working-directory: apps/web
+
       # Sync web assets + config into the android project
       - name: Sync Capacitor
         run: npx cap sync android
