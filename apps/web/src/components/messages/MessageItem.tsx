@@ -1,6 +1,6 @@
 import { useState, memo, useCallback } from 'react';
 import { Reply, Copy, Trash2, Check, Pin } from 'lucide-react';
-import { format, isToday, isYesterday } from 'date-fns';
+import { formatTimestampIST, formatTimeOnlyIST } from '../../utils/time';
 import { Message } from '@onyx/types';
 import { useAuthStore } from '../../stores/authStore';
 import { useSelectionStore } from '../../stores/selectionStore';
@@ -21,12 +21,6 @@ interface Props {
   isHighlighted?: boolean;
 }
 
-/* ── Pure helpers (defined outside component to avoid re-creation) ────── */
-function formatTime(date: Date): string {
-  if (isToday(date))     return format(date, 'HH:mm');
-  if (isYesterday(date)) return `Yesterday ${format(date, 'HH:mm')}`;
-  return format(date, 'MMM d, HH:mm');
-}
 
 /** Splits message content on @mentions and highlights them. */
 function renderContent(content: string, currentDisplayName?: string) {
@@ -205,7 +199,7 @@ export const MessageItem = memo(function MessageItem({
                   opacity: hovered ? 1 : 0, transition: 'opacity 0.1s',
                 }}
               >
-                {format(date, 'HH:mm')}
+                {formatTimeOnlyIST(date)}
               </span>
             )}
           </div>
@@ -224,7 +218,7 @@ export const MessageItem = memo(function MessageItem({
                   {message.author.displayName}
                 </span>
                 <span style={{ fontSize: 11, color: 'var(--color-subtle)' }}>
-                  {formatTime(date)}
+                  {formatTimestampIST(date)}
                 </span>
               </div>
             )}

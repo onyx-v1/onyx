@@ -4,6 +4,7 @@ import { Loader2, Pin } from 'lucide-react';
 import { Message } from '@onyx/types';
 import { MessageOrPin, isPinEvent, PinEvent } from '../../stores/messageStore';
 import { MessageItem } from './MessageItem';
+import { istDayKey, formatDayLabelIST } from '../../utils/time';
 
 interface Props {
   messages:   MessageOrPin[];
@@ -12,6 +13,39 @@ interface Props {
   onLoadMore: () => void;
   onReply:    (message: Message) => void;
 }
+
+/* ── Day separator — Discord-style horizontal rule with centred date pill ── */
+const DaySeparator = memo(function DaySeparator({ label }: { label: string }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center',
+      padding: '12px 20px 6px',
+      gap: 12,
+      userSelect: 'none',
+    }}>
+      {/* Left rule */}
+      <div style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
+
+      {/* Date pill */}
+      <span style={{
+        fontSize: 11, fontWeight: 700,
+        color: 'var(--color-subtle)',
+        background: 'var(--color-elevated)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 20,
+        padding: '3px 10px',
+        letterSpacing: '0.04em',
+        whiteSpace: 'nowrap',
+        flexShrink: 0,
+      }}>
+        {label}
+      </span>
+
+      {/* Right rule */}
+      <div style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
+    </div>
+  );
+});
 
 /* ── Pin system row ──────────────────────────────────────────────────── */
 const PinSystemRow = memo(function PinSystemRow({ event }: { event: PinEvent }) {
@@ -54,7 +88,7 @@ export function MessageList({ messages, hasMore, isLoading, onLoadMore, onReply 
   const savedScrollHeight = useRef(0);
   const lastMessageCount  = useRef(messages.length);
   const didHighlight      = useRef(false);
-  const rafRef            = useRef<number>(0);           // throttle token
+  const rafRef            = useRef<number>(0);
 
   // Keep onReply stable so MessageItem memo is never busted by parent re-renders
   const onReplyRef = useRef(onReply);
@@ -89,10 +123,8 @@ export function MessageList({ messages, hasMore, isLoading, onLoadMore, onReply 
     const nextCount = messages.length;
 
     if (nextCount > prevCount) {
-      // Messages were added (new message or load-more)
       const container = containerRef.current;
       if (container && savedScrollHeight.current > 0) {
-        // Restore scroll position after prepending older messages
         container.scrollTop += container.scrollHeight - savedScrollHeight.current;
         savedScrollHeight.current = 0;
       } else if (isAtBottom.current && !highlightId) {
@@ -105,7 +137,7 @@ export function MessageList({ messages, hasMore, isLoading, onLoadMore, onReply 
 
   /* ── Scroll event — rAF-throttled to avoid jank ─────────────────── */
   const handleScroll = useCallback(() => {
-    if (rafRef.current) return; // already a frame queued
+    if (rafRef.current) return;
     rafRef.current = requestAnimationFrame(() => {
       rafRef.current = 0;
       const el = containerRef.current;
@@ -118,6 +150,48 @@ export function MessageList({ messages, hasMore, isLoading, onLoadMore, onReply 
       }
     });
   }, [hasMore, isLoading, onLoadMore]);
+
+  /* ── Build render list: inject DaySeparator between IST day changes ─ */
+  const renderItems = useMemo(() => {
+    const out: React.ReactNode[] = [];
+    let lastDay = '';
+
+    grouped.forEach(({ item, compact }, idx) => {
+      // Determine the IST day key for this item
+      const date = isPinEvent(item)
+        ? new Date((item as PinEvent).createdAt ?? Date.now())
+        : new Date((item as Message).createdAt);
+
+      const dayKey = istDayKey(date);
+
+      if (dayKey !== lastDay) {
+        out.push(
+          <DaySeparator
+            key={`day-${dayKey}`}
+            label={formatDayLabelIST(date)}
+          />
+        );
+        lastDay = dayKey;
+      }
+
+      if (isPinEvent(item)) {
+        out.push(<PinSystemRow key={item.id} event={item as PinEvent} />);
+      } else {
+        const msg = item as Message;
+        out.push(
+          <MessageItem
+            key={msg.id}
+            message={msg}
+            compact={compact}
+            onReply={stableOnReply}
+            isHighlighted={msg.id === highlightId}
+          />
+        );
+      }
+    });
+
+    return out;
+  }, [grouped, highlightId, stableOnReply]);
 
   return (
     <div
@@ -132,21 +206,9 @@ export function MessageList({ messages, hasMore, isLoading, onLoadMore, onReply 
         </div>
       )}
 
-      {/* Messages + pin system rows */}
+      {/* Messages with day separators */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {grouped.map(({ item, compact }) =>
-          isPinEvent(item) ? (
-            <PinSystemRow key={item.id} event={item} />
-          ) : (
-            <MessageItem
-              key={item.id}
-              message={item as Message}
-              compact={compact}
-              onReply={stableOnReply}
-              isHighlighted={(item as Message).id === highlightId}
-            />
-          ),
-        )}
+        {renderItems}
       </div>
 
       {/* Scroll-to-bottom anchor */}

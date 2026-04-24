@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, Navigate, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Hash, Volume2, Pin, Search, X, Clock } from 'lucide-react';
-import { format, isToday, isYesterday } from 'date-fns';
 import { useChannelStore } from '../stores/channelStore';
 import { useMessages } from '../hooks/useMessages';
 import { useMobileCtx } from '../context/MobileContext';
@@ -13,6 +12,7 @@ import { PinnedPanel } from '../components/ui/PinnedPanel';
 import { useSelectionStore } from '../stores/selectionStore';
 import { apiClient } from '../api/client';
 import { Message } from '@onyx/types';
+import { formatTimestampIST } from '../utils/time';
 
 /* ── helpers ──────────────────────────────────────────────────────────────── */
 function fmtDate(d: Date) {
@@ -424,7 +424,7 @@ function MobileSearch({ channelId, channelName, onClose, onNavigate }: MobileSea
                   </span>
                   <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: '#505050' }}>
                     <Clock size={9} />
-                    {fmtDate(new Date(r.createdAt))}
+                    {formatTimestampIST(new Date(r.createdAt))}
                   </span>
                 </div>
 
