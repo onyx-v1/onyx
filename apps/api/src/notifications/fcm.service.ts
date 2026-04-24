@@ -16,11 +16,11 @@ export class FcmService implements OnModuleInit {
       return;
     }
     try {
-      const serviceAccount = JSON.parse(raw) as admin.ServiceAccount;
+      const serviceAccount = JSON.parse(raw) as admin.ServiceAccount & { project_id?: string };
       this.app = admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
       });
-      this.logger.log(`✅ Firebase Admin SDK initialised (project: ${serviceAccount.projectId ?? 'unknown'})`);
+      this.logger.log(`✅ Firebase Admin SDK initialised (project: ${serviceAccount.project_id ?? serviceAccount.projectId ?? 'unknown'})`);
     } catch (e) {
       this.logger.error('❌ Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON — check Railway variable format', e);
     }
