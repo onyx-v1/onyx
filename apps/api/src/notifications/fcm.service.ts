@@ -12,17 +12,17 @@ export class FcmService implements OnModuleInit {
   onModuleInit() {
     const raw = this.config.get<string>('FIREBASE_SERVICE_ACCOUNT_JSON');
     if (!raw) {
-      this.logger.warn('FIREBASE_SERVICE_ACCOUNT_JSON not set — push notifications disabled');
+      this.logger.warn('⚠️  FIREBASE_SERVICE_ACCOUNT_JSON not set — push notifications disabled');
       return;
     }
     try {
-      const serviceAccount = JSON.parse(raw);
+      const serviceAccount = JSON.parse(raw) as admin.ServiceAccount;
       this.app = admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
       });
-      this.logger.log('Firebase Admin SDK initialised');
+      this.logger.log(`✅ Firebase Admin SDK initialised (project: ${serviceAccount.projectId ?? 'unknown'})`);
     } catch (e) {
-      this.logger.error('Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON', e);
+      this.logger.error('❌ Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON — check Railway variable format', e);
     }
   }
 
