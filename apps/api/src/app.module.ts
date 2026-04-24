@@ -9,11 +9,12 @@ import { ChannelsModule } from './channels/channels.module';
 import { MessagesModule } from './messages/messages.module';
 import { CommunityModule } from './community/community.module';
 import { GatewayModule } from './gateway/gateway.module';
+import { DevicesModule } from './devices/devices.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    // Serve the React frontend as static files at /
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'client'),
       exclude: ['/api/(.*)'],
@@ -25,6 +26,8 @@ import { GatewayModule } from './gateway/gateway.module';
     MessagesModule,
     CommunityModule,
     GatewayModule,
+    DevicesModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}

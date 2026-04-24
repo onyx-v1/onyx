@@ -12,6 +12,8 @@ import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { FcmService } from '../notifications/fcm.service';
+import { DevicesService } from '../devices/devices.service';
 
 interface AuthSocket extends Socket {
   user: { id: string; username: string; displayName: string; role: string };
@@ -67,6 +69,8 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     private jwtService: JwtService,
     private config: ConfigService,
     private prisma: PrismaService,
+    private fcm: FcmService,
+    private devices: DevicesService,
   ) {}
 
   // ── Auth middleware ───────────────────────────────────────────────────────────
@@ -200,6 +204,9 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
     this.server.to(`channel:${data.channelId}`).emit('message:new', { message });
     this.stopTyping(data.channelId, client.user.id);
+
+    // ── Push notifications — send to all users except sender ─────────────────
+    this.sendPushForMessage(message, data.channelId, client.user).catch(() => {});
 
     // ── Parse and dispatch @mentions ─────────────────────────────────────────
     await this.dispatchMentions(content, data.channelId, message.id, client.user);
@@ -412,5 +419,39 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     const typers = this.typingState.get(channelId) ?? new Map();
     const users = [...typers.entries()].map(([id, { displayName }]) => ({ id, displayName }));
     this.server.to(`channel:${channelId}`).emit('typing:update', { channelId, users });
+  }
+
+  // ── FCM push for new messages ─────────────────────────────────────────────────
+  private async sendPushForMessage(
+    message: { id: string; content: string; author: { id: string; displayName: string } },
+    channelId: string,
+    sender: AuthSocket['user'],
+  ): Promise<void> {
+    // Get channel name for the notification title
+    const channel = await this.prisma.channel.findUnique({
+      where: { id: channelId },
+      select: { name: true, community: { select: { id: true } } },
+    });
+    if (!channel) return;
+
+    // Get all users who have a device registered (everyone except sender)
+    const allDeviceUsers = await this.prisma.device.findMany({
+      where: { userId: { not: sender.id } },
+      select: { fcmToken: true },
+      distinct: ['fcmToken'],
+    });
+    const tokens = allDeviceUsers.map((d) => d.fcmToken);
+    if (tokens.length === 0) return;
+
+    const preview = message.content.length > 100
+      ? message.content.slice(0, 100) + '…'
+      : message.content;
+
+    await this.fcm.sendMulticast(
+      tokens,
+      `#${channel.name}`,
+      `${sender.displayName}: ${preview}`,
+      { channelId, messageId: message.id },
+    );
   }
 }
