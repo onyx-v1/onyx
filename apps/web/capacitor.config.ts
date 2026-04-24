@@ -18,6 +18,7 @@ const config: CapacitorConfig = {
     url:           'https://onyx-api0.up.railway.app',
     cleartext:     false,
     androidScheme: 'https',
+    errorPath:     'offline.html',   // served from local APK assets when server unreachable
   },
 
   android: {

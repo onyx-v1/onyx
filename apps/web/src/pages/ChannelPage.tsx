@@ -75,7 +75,7 @@ function ChannelView({ channelId }: { channelId: string }) {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', height: '100%',
-      background: isMobile ? '#0f0f0f' : undefined,
+      background: isMobile ? 'var(--color-base)' : undefined,
     }}>
 
       {/* ── Mobile header ──────────────────────────────────────────── */}
@@ -294,7 +294,7 @@ function MobileSearch({ channelId, channelName, onClose, onNavigate }: MobileSea
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 200,
-      background: '#0f0f0f',
+      background: 'var(--color-base)',
       display: 'flex', flexDirection: 'column',
       paddingTop: 'env(safe-area-inset-top)',
     }}>
@@ -303,7 +303,7 @@ function MobileSearch({ channelId, channelName, onClose, onNavigate }: MobileSea
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8,
         padding: '10px 12px',
-        borderBottom: '1px solid rgba(255,255,255,0.08)',
+        borderBottom: '1px solid var(--color-border)',
         flexShrink: 0,
       }}>
         {/* Cancel / back */}
@@ -323,7 +323,7 @@ function MobileSearch({ channelId, channelName, onClose, onNavigate }: MobileSea
         {/* Search input */}
         <div style={{
           flex: 1, display: 'flex', alignItems: 'center', gap: 8,
-          background: 'rgba(255,255,255,0.07)',
+          background: 'var(--color-input)',
           borderRadius: 10, padding: '9px 12px',
           border: '1px solid rgba(139,124,248,0.25)',
         }}>
@@ -354,7 +354,7 @@ function MobileSearch({ channelId, channelName, onClose, onNavigate }: MobileSea
       <div style={{
         display: 'flex', gap: 8,
         padding: '10px 14px',
-        borderBottom: '1px solid rgba(255,255,255,0.05)',
+        borderBottom: '1px solid var(--color-border)',
         flexShrink: 0,
       }}>
         {(['channel', 'all'] as const).map((s) => (
@@ -364,7 +364,7 @@ function MobileSearch({ channelId, channelName, onClose, onNavigate }: MobileSea
             style={{
               padding: '6px 14px', borderRadius: 20, fontSize: 13, fontWeight: 600,
               border: 'none', cursor: 'pointer',
-              background: scope === s ? 'rgba(139,124,248,0.18)' : 'rgba(255,255,255,0.06)',
+              background: scope === s ? 'var(--color-accent-muted)' : 'var(--color-input)',
               color: scope === s ? 'var(--color-accent)' : '#a0a0a0',
               transition: 'all 0.15s',
               WebkitTapHighlightColor: 'transparent',

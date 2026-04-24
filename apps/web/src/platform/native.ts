@@ -9,6 +9,18 @@ const nativePlatform: PlatformAPI = {
   isDesktop: false,
 
   ready: async () => {
+    // ── Re-apply persisted theme immediately ──────────────────────
+    // Belt-and-suspenders: initTheme() already ran in main.tsx but
+    // calling it again after the bridge is ready guarantees the correct
+    // data-theme attribute is on <html> before React renders anything.
+    try {
+      const stored = localStorage.getItem('onyx-theme');
+      const id = stored ? (JSON.parse(stored)?.state?.theme ?? 'dark') : 'dark';
+      document.documentElement.setAttribute('data-theme', id);
+    } catch {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+
     // ── Back button ───────────────────────────────────────────────
     const { App } = await import('@capacitor/app');
     App.addListener('backButton', ({ canGoBack }) => {
@@ -17,14 +29,11 @@ const nativePlatform: PlatformAPI = {
     });
 
     // ── Edge-to-edge status bar ───────────────────────────────────
-    // Renders the WebView under the system status bar so the app
-    // feels like a native full-screen Android app.
-    // CSS uses env(safe-area-inset-top) to pad content away from the notch.
     try {
       const { StatusBar, Style } = await import('@capacitor/status-bar');
       await StatusBar.setOverlaysWebView({ overlay: true });
-      await StatusBar.setStyle({ style: Style.Dark });         // white icons on dark bg
-      await StatusBar.setBackgroundColor({ color: '#00000000' }); // transparent
+      await StatusBar.setStyle({ style: Style.Dark });
+      await StatusBar.setBackgroundColor({ color: '#00000000' });
     } catch {
       // StatusBar plugin may not be available in browser — safe to ignore
     }

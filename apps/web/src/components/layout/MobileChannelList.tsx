@@ -42,21 +42,18 @@ export function MobileChannelList() {
     <div style={{
       position: 'fixed', inset: 0,
       display: 'flex', flexDirection: 'column',
-      background: '#0f0f0f',
-      // NO paddingTop here — background must bleed under the status bar.
-      // Each section handles its own safe-area padding.
+      background: 'var(--color-base)',
     }}>
 
       {/* ── Top bar — extends UNDER status bar via safe-area-inset-top ── */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 12,
-        // paddingTop absorbs the status bar height; content aligns below icons
         paddingTop: 'calc(env(safe-area-inset-top) + 10px)',
         paddingBottom: 10,
         paddingLeft: 16, paddingRight: 16,
         flexShrink: 0,
-        background: '#0f0f0f',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        background: 'var(--color-base)',
+        borderBottom: '1px solid var(--color-border)',
       }}>
         {/* Community logo */}
         <div style={{
@@ -72,7 +69,7 @@ export function MobileChannelList() {
         <span style={{
           flex: 1,
           fontSize: 18, fontWeight: 700,
-          color: '#f2f2f2',
+          color: 'var(--color-primary)',
           letterSpacing: '-0.01em',
         }}>
           {communityName || 'Onyx'}
@@ -115,7 +112,7 @@ export function MobileChannelList() {
             <div style={{
               padding: '16px 16px 6px',
               fontSize: 11, fontWeight: 700,
-              color: '#606060',
+              color: 'var(--color-subtle)',
               letterSpacing: '0.08em',
               textTransform: 'uppercase',
             }}>
@@ -140,7 +137,7 @@ export function MobileChannelList() {
             <div style={{
               padding: '16px 16px 6px',
               fontSize: 11, fontWeight: 700,
-              color: '#606060',
+              color: 'var(--color-subtle)',
               letterSpacing: '0.08em',
               textTransform: 'uppercase',
             }}>
@@ -170,12 +167,12 @@ export function MobileChannelList() {
       </div>
 
       {/* ── Bottom profile bar ─────────────────────────────────────────────────────────────── */}
-      <div style={{
+        <div style={{
         display: 'flex', alignItems: 'center', gap: 12,
         paddingTop: 12, paddingLeft: 16, paddingRight: 16,
         paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)',
-        background: '#141414',
-        borderTop: '1px solid rgba(255,255,255,0.06)',
+        background: 'var(--color-elevated)',
+        borderTop: '1px solid var(--color-border)',
         flexShrink: 0,
       }}>
         <div
@@ -190,21 +187,21 @@ export function MobileChannelList() {
           <span style={{
             position: 'absolute', bottom: -1, right: -1,
             width: 10, height: 10, borderRadius: '50%',
-            background: isUserOnline ? 'var(--color-online)' : '#606060',
-            border: '2px solid #141414',
+            background: isUserOnline ? 'var(--color-online)' : 'var(--color-subtle)',
+            border: '2px solid var(--color-elevated)',
           }} />
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{
             margin: 0, fontSize: 14, fontWeight: 700,
-            color: '#f2f2f2',
+            color: 'var(--color-primary)',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
             {user?.displayName}
           </p>
           <p style={{
-            margin: 0, fontSize: 12, color: '#606060',
+            margin: 0, fontSize: 12, color: 'var(--color-subtle)',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
             @{user?.username}
@@ -298,7 +295,7 @@ function ChannelRow({ channelId, name, type, isActive, onClick }: RowProps) {
         {type === 'TEXT' ? (
           <Hash
             size={18}
-            style={{ color: isActive ? 'var(--color-accent)' : hasUnread ? '#f2f2f2' : '#a0a0a0' }}
+            style={{ color: isActive ? 'var(--color-accent)' : hasUnread ? 'var(--color-primary)' : 'var(--color-muted)' }}
           />
         ) : (
           <Volume2 size={18} style={{ color: 'var(--color-online)' }} />
@@ -311,13 +308,13 @@ function ChannelRow({ channelId, name, type, isActive, onClick }: RowProps) {
           margin: 0,
           fontSize: 15,
           fontWeight: hasUnread && !isActive ? 700 : 600,
-          color: isActive ? 'var(--color-accent)' : hasUnread ? '#f2f2f2' : '#c8c8c8',
+          color: isActive ? 'var(--color-accent)' : hasUnread ? 'var(--color-primary)' : 'var(--color-muted)',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
           {name}
         </p>
         <p style={{
-          margin: 0, fontSize: 12, color: '#606060',
+          margin: 0, fontSize: 12, color: 'var(--color-subtle)',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
           {type === 'VOICE' ? 'Voice channel — tap to join' : 'Tap to open'}
