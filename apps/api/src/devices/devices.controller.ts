@@ -6,7 +6,7 @@ class RegisterTokenDto {
   fcmToken: string;
 }
 
-@Controller('api/devices')
+@Controller('devices')
 @UseGuards(JwtAuthGuard)
 export class DevicesController {
   constructor(private devices: DevicesService) {}
