@@ -32,9 +32,6 @@ interface MessageState {
   removeMessage:   (channelId: string, messageId: string) => void;
   addPinEvent:     (channelId: string, event: PinEvent) => void;
   clearChannel:    (channelId: string) => void;
-
-  /** Merge messages + pinEvents for a channel, sorted by createdAt */
-  getMerged:       (channelId: string) => MessageOrPin[];
 }
 
 export const useMessageStore = create<MessageState>((set, get) => ({
@@ -135,13 +132,4 @@ export const useMessageStore = create<MessageState>((set, get) => ({
       nextPin.delete(channelId);
       return { messages: nextMsg, pinEvents: nextPin };
     }),
-
-  getMerged: (channelId) => {
-    const { messages, pinEvents } = get();
-    const msgs: MessageOrPin[] = messages.get(channelId) ?? [];
-    const pins: MessageOrPin[] = pinEvents.get(channelId) ?? [];
-    return [...msgs, ...pins].sort(
-      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-    );
-  },
 }));

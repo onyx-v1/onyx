@@ -3,6 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '../stores/authStore';
 import { useChannelStore } from '../stores/channelStore';
 import { useSocketStore } from '../stores/socketStore';
+import { API_URL, WS_URL } from '../lib/constants';
 
 // ── Singleton — survives re-renders ──────────────────────────────────────────
 let socket: Socket | null = null;
@@ -54,7 +55,7 @@ async function tryRefreshToken(): Promise<string | null> {
     const refreshToken = stored?.state?.refreshToken;
     if (!refreshToken) return null;
 
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
     const res = await fetch(`${API_URL}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -88,7 +89,7 @@ function createSocket(token: string): Socket {
     socket = null;
   }
 
-  const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:3000';
+
 
   const s = io(WS_URL, {
     auth: { token },

@@ -33,9 +33,10 @@ const pkg = require('../package.json') as { onyxAppUrl?: string };
 const ONYX_APP_URL = pkg.onyxAppUrl || 'https://onyx-api0.up.railway.app';
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let mainWindow: BrowserWindow | null = null;
-let tray: Tray | null = null;
-let isQuitting = false;
+let mainWindow:       BrowserWindow | null = null;
+let tray:             Tray | null = null;
+let isQuitting        = false;
+let hasShownTrayHint  = false;
 
 // ── Single-instance lock ──────────────────────────────────────────────────────
 const gotLock = app.requestSingleInstanceLock();
@@ -206,17 +207,16 @@ app.whenReady().then(() => {
       event.preventDefault();
       mainWindow?.hide();
 
-      // First time: notify user the app is still running
-      if (tray && Notification.isSupported()) {
+      // Notify user the app is still running — only shown once per session
+      if (!hasShownTrayHint && tray && Notification.isSupported()) {
+        hasShownTrayHint = true;
         const hint = new Notification({
-          title: 'Onyx is still running',
-          body:  'The app is minimised to the tray. Right-click the tray icon to quit.',
-          icon:  resourcePath('icon.ico'),
+          title:  'Onyx is still running',
+          body:   'The app is minimised to the tray. Right-click the tray icon to quit.',
+          icon:   resourcePath('icon.ico'),
           silent: true,
         });
         hint.show();
-        // Only show this hint once
-        mainWindow?.once('close', () => {});
       }
     }
   });

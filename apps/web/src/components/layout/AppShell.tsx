@@ -72,7 +72,7 @@ export function AppShell() {
         <main
           style={isMobile ? {
             position: 'fixed', inset: 0,
-            background: '#0f0f0f',
+            background: 'var(--color-base)',
             display: 'flex', flexDirection: 'column',
           } : undefined}
           className={isMobile ? undefined : 'app-main'}

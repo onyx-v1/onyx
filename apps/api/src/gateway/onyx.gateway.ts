@@ -429,18 +429,15 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   ): Promise<void> {
     // Get channel name for the notification title
     const channel = await this.prisma.channel.findUnique({
-      where: { id: channelId },
-      select: { name: true, community: { select: { id: true } } },
+      where:  { id: channelId },
+      select: { name: true },
     });
     if (!channel) return;
 
-    // Get all users who have a device registered (everyone except sender)
-    const allDeviceUsers = await this.prisma.device.findMany({
-      where: { userId: { not: sender.id } },
-      select: { fcmToken: true },
-      distinct: ['fcmToken'],
-    });
-    const tokens = allDeviceUsers.map((d) => d.fcmToken);
+    // Exclude: sender + any user currently connected via WebSocket.
+    // Online users receive the message in real-time via socket — no push needed.
+    const excludedUserIds = [...new Set([sender.id, ...this.onlineUsers.keys()])];
+    const tokens = await this.devices.getTokensExcluding(excludedUserIds);
     if (tokens.length === 0) return;
 
     const preview = message.content.length > 100

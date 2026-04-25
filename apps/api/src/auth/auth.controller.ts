@@ -1,6 +1,6 @@
 import { Body, Controller, Get, HttpCode, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { LoginDto, LogoutDto, RefreshDto } from './dto/auth.dto';
+import { LoginDto, LogoutDto, RefreshDto, UpdateAvatarDto } from './dto/auth.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { UsersService } from '../users/users.service';
 
@@ -38,7 +38,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Patch('me/avatar')
   @HttpCode(200)
-  updateAvatar(@Req() req: any, @Body() body: { avatarUrl: string }) {
-    return this.usersService.updateAvatar(req.user.id, body.avatarUrl);
+  updateAvatar(@Req() req: any, @Body() dto: UpdateAvatarDto) {
+    return this.usersService.updateAvatar(req.user.id, dto.avatarUrl);
   }
 }

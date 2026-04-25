@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useRef, useState, useMemo } from 'react';
-import { useMessageStore, isPinEvent } from '../stores/messageStore';
+import { useMessageStore } from '../stores/messageStore';
 import { useSocketStore } from '../stores/socketStore';
 import { getSocket } from './useSocket';
 import { WsEvents } from '@onyx/types';
@@ -76,7 +76,8 @@ export function useMessages(channelId: string) {
   /* ── Load older messages ─────────────────────────────────────────── */
   const loadMore = useCallback(() => {
     if (!channelHasMore || isLoading) return;
-    const oldest = channelMessages.find((m) => !isPinEvent(m));
+    // channelMessages is Message[] (no PinEvents) — oldest is first item
+    const oldest = channelMessages[0];
     fetchHistory(channelId, oldest ? String(oldest.createdAt) : undefined)
       .catch(() => setError('Could not load older messages.'));
   }, [channelId, channelMessages, channelHasMore, isLoading]);
