@@ -55,12 +55,12 @@ jobs:
       #   1. Transparent status bar (content renders UNDER it)
       #   2. Display cutout / notch support (shortEdges mode)
       # The CSS env(safe-area-inset-top) then handles correct content padding.
-      - name: Patch Android for edge-to-edge and notch support
+      - name: Patch Android for edge-to-edge, notch, and Firebase
         run: |
           python3 << 'PYEOF'
           import re
 
-          # ── 1. Patch styles.xml ──────────────────────────────────────────
+          # ── 1. Patch styles.xml ──────────────────────────────────────────────
           styles_path = 'apps/web/android/app/src/main/res/values/styles.xml'
           with open(styles_path, 'r') as f:
               styles = f.read()
@@ -72,7 +72,6 @@ jobs:
               '\n        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>'
           )
 
-          # Insert before the last </style> (AppTheme closing tag)
           last_close = styles.rfind('</style>')
           if last_close != -1:
               styles = styles[:last_close] + edge_items + '\n    </style>' + styles[last_close + len('</style>'):]
@@ -81,12 +80,11 @@ jobs:
               f.write(styles)
           print('[OK] styles.xml patched with edge-to-edge items')
 
-          # ── 2. Patch AndroidManifest.xml for display cutout (notch) ─────
+          # ── 2. Patch AndroidManifest.xml ─────────────────────────────────────
           manifest_path = 'apps/web/android/app/src/main/AndroidManifest.xml'
           with open(manifest_path, 'r') as f:
               manifest = f.read()
 
-          # Add cutout mode to the main activity declaration
           if 'windowLayoutInDisplayCutoutMode' not in manifest:
               manifest = manifest.replace(
                   'android:screenOrientation="portrait"',
@@ -96,6 +94,42 @@ jobs:
           with open(manifest_path, 'w') as f:
               f.write(manifest)
           print('[OK] AndroidManifest.xml patched with cutout mode')
+
+          # ── 3. Patch android/build.gradle — add Google Services classpath ─────
+          # Required so that google-services.json is processed by Gradle.
+          # Without this, Firebase has no project credentials → FCM broken.
+          build_gradle_path = 'apps/web/android/build.gradle'
+          with open(build_gradle_path, 'r') as f:
+              build_gradle = f.read()
+
+          if 'com.google.gms:google-services' not in build_gradle:
+              build_gradle = re.sub(
+                  r"(dependencies \{)",
+                  r"\1\n        classpath 'com.google.gms:google-services:4.4.2'",
+                  build_gradle,
+                  count=1
+              )
+              with open(build_gradle_path, 'w') as f:
+                  f.write(build_gradle)
+              print('[OK] android/build.gradle patched with Google Services classpath')
+          else:
+              print('[SKIP] android/build.gradle already has Google Services classpath')
+
+          # ── 4. Patch android/app/build.gradle — apply Google Services plugin ──
+          # apply plugin must come AFTER com.android.application.
+          app_build_gradle_path = 'apps/web/android/app/build.gradle'
+          with open(app_build_gradle_path, 'r') as f:
+              app_build_gradle = f.read()
+
+          if 'com.google.gms.google-services' not in app_build_gradle:
+              # Append at the very end of the file
+              app_build_gradle = app_build_gradle.rstrip() + "\n\napply plugin: 'com.google.gms.google-services'\n"
+              with open(app_build_gradle_path, 'w') as f:
+                  f.write(app_build_gradle)
+              print('[OK] android/app/build.gradle patched with apply google-services plugin')
+          else:
+              print('[SKIP] android/app/build.gradle already has google-services plugin')
+
           PYEOF
 
       # Generate launcher icons + splash from assets/icon.png using the real Onyx logo
