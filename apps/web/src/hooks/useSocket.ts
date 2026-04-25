@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuthStore } from '../stores/authStore';
 import { useChannelStore } from '../stores/channelStore';
@@ -152,12 +152,11 @@ function createSocket(token: string): Socket {
   return s;
 }
 
-// ── Main hook ─────────────────────────────────────────────────────────────────
+// ── Main hook ─────────────────────────────────────────────────────────────────────────────────
 export function useSocket(): void {
   const { isAuthenticated, accessToken } = useAuthStore();
-  const initialised = useRef(false);
 
-  // (Re)create socket when auth changes
+  // (Re)create or reconnect socket when auth state changes
   useEffect(() => {
     if (!isAuthenticated || !accessToken) {
       if (socket) {
@@ -169,18 +168,21 @@ export function useSocket(): void {
       return;
     }
 
-    // Start proactive refresh cycle — silences 401 flash on page reload
+    // Start proactive refresh cycle — prevents 401 flash on page reload
     scheduleProactiveRefresh();
 
-    if (socket?.connected && !initialised.current) {
-      initialised.current = true;
+    if (socket) {
+      // Socket already exists — keep it alive.
+      // Always update the auth token (handles proactive refresh case).
+      // Calling connect() is a no-op if already connected; it kicks a
+      // reconnect if the socket is in a disconnected/connecting dead-zone.
+      (socket as any).auth = { token: accessToken };
+      if (!socket.connected) socket.connect();
       return;
     }
 
-    if (!socket) {
-      socket = createSocket(accessToken);
-      initialised.current = true;
-    }
+    // No socket yet — create fresh
+    socket = createSocket(accessToken);
   }, [isAuthenticated, accessToken]);
 
   // Page visible → reconnect if dropped

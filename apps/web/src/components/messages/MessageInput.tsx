@@ -63,6 +63,14 @@ export function MessageInput({ channelId, replyTo, onCancelReply }: Props) {
   /* ── Clean up on channel change ─────────────────────────────────── */
   useEffect(() => () => stopTyping(), [channelId]);
 
+  /* ── Scroll active mention item into view on arrow navigation ─────── */
+  useEffect(() => {
+    if (mentionQuery === null || mentionList.length === 0) return;
+    // children[0] is the header label — items start at index 1
+    const item = dropdownRef.current?.children[mentionIndex + 1] as HTMLElement | undefined;
+    item?.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+  }, [mentionIndex, mentionQuery, mentionList.length]);
+
   /* ── Reset on channel change ────────────────────────────────────── */
   useEffect(() => {
     if (textareaRef.current) {
