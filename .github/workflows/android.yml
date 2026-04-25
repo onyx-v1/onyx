@@ -1,9 +1,7 @@
 name: Android Build
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch: # manual trigger only — version tags no longer build Android
 
 permissions:
   contents: write
