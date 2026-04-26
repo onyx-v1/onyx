@@ -41,6 +41,7 @@ export interface Message {
   createdAt: string | Date;
   deleted: boolean;
   pinned?: boolean;
+  reactions?: { emoji: string; userId: string }[];
 }
 
 export interface Community {
@@ -74,6 +75,7 @@ export namespace WsEvents {
   export interface MessageDelete { messageId: string; }
   export interface TypingStart { channelId: string; }
   export interface TypingStop { channelId: string; }
+  export interface ReactionToggle { messageId: string; emoji: string; }
   export interface VoiceJoin { channelId: string; }
   export interface VoiceLeave { channelId: string; }
   export interface VoiceSignal {
@@ -87,6 +89,11 @@ export namespace WsEvents {
   export interface MessageNew { message: Message; }
   export interface MessageDeleted { messageId: string; channelId: string; }
   export interface MessageUpdated { message: Message; }
+  export interface ReactionUpdated {
+    messageId: string;
+    channelId: string;
+    reactions: { emoji: string; userId: string }[];
+  }
   export interface MessagePinned {
     messageId: string;
     channelId: string;

@@ -1,6 +1,6 @@
-import { useEffect, useRef, useMemo, useCallback, memo } from 'react';
+import { useEffect, useRef, useMemo, useCallback, memo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Loader2, Pin } from 'lucide-react';
+import { Loader2, Pin, ChevronDown } from 'lucide-react';
 import { Message } from '@onyx/types';
 import { MessageOrPin, isPinEvent, PinEvent } from '../../stores/messageStore';
 import { MessageItem } from './MessageItem';
@@ -89,6 +89,7 @@ export function MessageList({ messages, hasMore, isLoading, onLoadMore, onReply 
   const lastMessageCount  = useRef(messages.length);
   const didHighlight      = useRef(false);
   const rafRef            = useRef<number>(0);
+  const [newCount, setNewCount] = useState(0);
 
   // Keep onReply stable so MessageItem memo is never busted by parent re-renders
   const onReplyRef = useRef(onReply);
@@ -135,6 +136,9 @@ export function MessageList({ messages, hasMore, isLoading, onLoadMore, onReply 
         savedScrollHeight.current = 0;
       } else if (isAtBottom.current && !highlightId) {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      } else if (!isAtBottom.current) {
+        // User scrolled up — count new arrivals
+        setNewCount((c) => c + (nextCount - prevCount));
       }
     }
 
@@ -149,7 +153,9 @@ export function MessageList({ messages, hasMore, isLoading, onLoadMore, onReply 
       const el = containerRef.current;
       if (!el) return;
       const { scrollTop, scrollHeight, clientHeight } = el;
-      isAtBottom.current = scrollHeight - scrollTop - clientHeight < 80;
+      const atBottom = scrollHeight - scrollTop - clientHeight < 80;
+      isAtBottom.current = atBottom;
+      if (atBottom) setNewCount(0); // clear badge when user scrolls to bottom
       if (scrollTop < 120 && hasMore && !isLoading) {
         savedScrollHeight.current = scrollHeight;
         onLoadMore();
@@ -204,7 +210,7 @@ export function MessageList({ messages, hasMore, isLoading, onLoadMore, onReply 
     <div
       ref={containerRef}
       onScroll={handleScroll}
-      style={{ flex: 1, overflowY: 'auto', padding: '8px 0 4px', display: 'flex', flexDirection: 'column' }}
+      style={{ flex: 1, overflowY: 'auto', padding: '8px 0 4px', display: 'flex', flexDirection: 'column', position: 'relative' }}
     >
       {/* Load-older spinner */}
       {isLoading && (
@@ -217,6 +223,32 @@ export function MessageList({ messages, hasMore, isLoading, onLoadMore, onReply 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         {renderItems}
       </div>
+
+      {/* Scroll-to-bottom button */}
+      {newCount > 0 && (
+        <button
+          onClick={() => {
+            bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+            setNewCount(0);
+          }}
+          style={{
+            position: 'absolute', bottom: 8, left: '50%', transform: 'translateX(-50%)',
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '6px 14px',
+            background: 'var(--color-accent)',
+            border: 'none', borderRadius: 20,
+            color: '#fff', fontSize: 12, fontWeight: 700,
+            cursor: 'pointer',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+            animation: 'slideUp 0.2s ease-out',
+            zIndex: 10,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <ChevronDown size={14} />
+          {newCount} new message{newCount !== 1 ? 's' : ''}
+        </button>
+      )}
 
       {/* Scroll-to-bottom anchor */}
       <div ref={bottomRef} style={{ height: 1 }} />

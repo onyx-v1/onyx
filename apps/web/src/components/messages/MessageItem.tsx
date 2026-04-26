@@ -1,5 +1,5 @@
-import { useState, memo, useCallback } from 'react';
-import { Reply, Copy, Trash2, Check, Pin } from 'lucide-react';
+import { useState, useRef, memo, useCallback } from 'react';
+import { Reply, Copy, Trash2, Check, Pin, Smile } from 'lucide-react';
 import { formatTimestampIST, formatTimeOnlyIST } from '../../utils/time';
 import { Message } from '@onyx/types';
 import { useAuthStore } from '../../stores/authStore';
@@ -7,6 +7,8 @@ import { useSelectionStore } from '../../stores/selectionStore';
 import { useDeletePrefsStore } from '../../stores/deletePrefsStore';
 import { getSocket } from '../../hooks/useSocket';
 import { Avatar } from '../ui/Avatar';
+import { ReactionPicker } from './ReactionPicker';
+import { LinkPreview, extractUrl } from './LinkPreview';
 
 /* ── Layout constants ────────────────────────────────────────────────── */
 const AVATAR_W    = 32;
@@ -60,8 +62,10 @@ export const MessageItem = memo(function MessageItem({
   const { active: selectionActive, selectedIds, enterSelection, toggleMessage } = useSelectionStore();
   const { openDeleteConfirm } = useDeletePrefsStore();
 
-  const [hovered, setHovered] = useState(false);
-  const [copied,  setCopied]  = useState(false);
+  const [hovered,           setHovered]           = useState(false);
+  const [copied,            setCopied]            = useState(false);
+  const [reactionPickerOpen, setReactionPickerOpen] = useState(false);
+  const reactionBtnRef = useRef<HTMLButtonElement>(null);
 
   const isSelected = selectedIds.has(message.id);
   const isOwn      = user?.id === message.author.id;
@@ -257,9 +261,63 @@ export const MessageItem = memo(function MessageItem({
             </span>
           </div>
         )}
+
+        {/* Link preview — only for non-deleted messages containing a URL */}
+        {!message.deleted && (() => {
+          const url = extractUrl(message.content);
+          return url ? (
+            <div style={{ marginLeft: AVATAR_W + COL_GAP }}>
+              <LinkPreview url={url} />
+            </div>
+          ) : null;
+        })()}
+
+        {/* Reaction pills */}
+        {!message.deleted && (message.reactions ?? []).length > 0 && (() => {
+          // Group by emoji
+          const groups = new Map<string, string[]>();
+          for (const r of message.reactions!) {
+            if (!groups.has(r.emoji)) groups.set(r.emoji, []);
+            groups.get(r.emoji)!.push(r.userId);
+          }
+          const myId = user?.id ?? '';
+          return (
+            <div style={{
+              display: 'flex', flexWrap: 'wrap', gap: 4,
+              marginLeft: AVATAR_W + COL_GAP, marginTop: 4,
+            }}>
+              {[...groups.entries()].map(([emoji, userIds]) => {
+                const isMine = userIds.includes(myId);
+                return (
+                  <button
+                    key={emoji}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      getSocket()?.emit('reaction:toggle', { messageId: message.id, emoji });
+                    }}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                      padding: '2px 8px',
+                      borderRadius: 20,
+                      border: `1px solid ${isMine ? 'rgba(139,124,248,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                      background: isMine ? 'rgba(139,124,248,0.12)' : 'rgba(255,255,255,0.04)',
+                      cursor: 'pointer', fontSize: 14,
+                      transition: 'background 0.1s, border-color 0.1s',
+                    }}
+                  >
+                    <span>{emoji}</span>
+                    <span style={{ fontSize: 12, color: isMine ? 'var(--color-accent)' : 'var(--color-muted)', fontWeight: 600 }}>
+                      {userIds.length}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })()}
       </div>{/* end message body */}
 
-      {/* ── Hover action toolbar (hidden during selection or for deleted rows) ── */}
+      {/* ── Hover action toolbar ── */}
       {hovered && !selectionActive && !message.deleted && (
         <div
           style={{
@@ -272,6 +330,22 @@ export const MessageItem = memo(function MessageItem({
             zIndex: 10,
           }}
         >
+          {/* Reaction picker trigger */}
+          <button
+            ref={reactionBtnRef}
+            title="React"
+            onClick={(e) => { e.stopPropagation(); setReactionPickerOpen((v) => !v); }}
+            style={{
+              width: 30, height: 30,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              borderRadius: 6, border: 'none', cursor: 'pointer',
+              background: reactionPickerOpen ? 'rgba(255,255,255,0.08)' : 'transparent',
+              color: 'var(--color-muted)', transition: 'background 0.1s',
+            }}
+          >
+            <Smile size={14} />
+          </button>
+
           <ActionBtn title="Select"  onClick={handleEnterSelection}><Check  size={14} /></ActionBtn>
           <ActionBtn title="Reply" onClick={() => onReply(message)}><Reply size={14} /></ActionBtn>
           <ActionBtn title={copied ? 'Copied!' : 'Copy'} onClick={handleCopy}>
@@ -290,6 +364,16 @@ export const MessageItem = memo(function MessageItem({
             </ActionBtn>
           )}
         </div>
+      )}
+
+      {/* ── Reaction picker popover ── */}
+      {reactionPickerOpen && (
+        <ReactionPicker
+          messageId={message.id}
+          myReactions={(message.reactions ?? []).filter((r) => r.userId === user?.id).map((r) => r.emoji)}
+          onClose={() => setReactionPickerOpen(false)}
+          anchorRef={reactionBtnRef as React.RefObject<HTMLElement>}
+        />
       )}
     </div>
   );

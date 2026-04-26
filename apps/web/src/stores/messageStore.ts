@@ -28,6 +28,7 @@ interface MessageState {
   fetchHistory:    (channelId: string, before?: string) => Promise<void>;
   addMessage:      (channelId: string, message: Message) => void;
   updateMessage:   (channelId: string, messageId: string, patch: Partial<Message>) => void;
+  updateReactions: (channelId: string, messageId: string, reactions: { emoji: string; userId: string }[]) => void;
   deleteMessage:   (channelId: string, messageId: string) => void;
   removeMessage:   (channelId: string, messageId: string) => void;
   addPinEvent:     (channelId: string, event: PinEvent) => void;
@@ -93,6 +94,14 @@ export const useMessageStore = create<MessageState>((set, get) => ({
       const existing = s.messages.get(channelId) ?? [];
       const nextMessages = new Map(s.messages);
       nextMessages.set(channelId, existing.map((m) => m.id === messageId ? { ...m, ...patch } : m));
+      return { messages: nextMessages };
+    }),
+
+  updateReactions: (channelId, messageId, reactions) =>
+    set((s) => {
+      const existing = s.messages.get(channelId) ?? [];
+      const nextMessages = new Map(s.messages);
+      nextMessages.set(channelId, existing.map((m) => m.id === messageId ? { ...m, reactions } : m));
       return { messages: nextMessages };
     }),
 

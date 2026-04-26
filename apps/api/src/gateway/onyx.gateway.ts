@@ -24,6 +24,7 @@ const MSG_INCLUDE = {
   replyTo: {
     include: { author: { select: { id: true, username: true, displayName: true, avatarUrl: true } } },
   },
+  reactions: { select: { emoji: true, userId: true } },
 };
 
 @WebSocketGateway({
@@ -328,6 +329,42 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   @SubscribeMessage('typing:stop')
   handleTypingStop(@ConnectedSocket() client: AuthSocket, @MessageBody() data: { channelId: string }) {
     this.stopTyping(data.channelId, client.user.id);
+  }
+
+  // ── Reactions ─────────────────────────────────────────────────────────────────
+  private static readonly ALLOWED_REACTIONS = ['😂', '💀', '😢', '❤️', '👍'];
+
+  @SubscribeMessage('reaction:toggle')
+  async handleReactionToggle(
+    @ConnectedSocket() client: AuthSocket,
+    @MessageBody() data: { messageId: string; emoji: string },
+  ) {
+    if (!OnyxGateway.ALLOWED_REACTIONS.includes(data.emoji)) return;
+
+    const where = {
+      messageId_userId_emoji: { messageId: data.messageId, userId: client.user.id, emoji: data.emoji },
+    };
+
+    const existing = await this.prisma.messageReaction.findUnique({ where });
+    if (existing) {
+      await this.prisma.messageReaction.delete({ where: { id: existing.id } });
+    } else {
+      await this.prisma.messageReaction.create({
+        data: { messageId: data.messageId, userId: client.user.id, emoji: data.emoji },
+      });
+    }
+
+    const message = await this.prisma.message.findUnique({
+      where: { id: data.messageId },
+      include: { reactions: { select: { emoji: true, userId: true } } },
+    });
+    if (!message) return;
+
+    this.server.to(`channel:${message.channelId}`).emit('reaction:updated', {
+      messageId: data.messageId,
+      channelId: message.channelId,
+      reactions: message.reactions,
+    });
   }
 
   // ── Voice ─────────────────────────────────────────────────────────────────────

@@ -9,7 +9,7 @@ export function useMessages(channelId: string) {
   const pinEvents   = useMessageStore((s) => s.pinEvents);
   const hasMore     = useMessageStore((s) => s.hasMore);
   const loading     = useMessageStore((s) => s.loading);
-  const { fetchHistory, deleteMessage, removeMessage } = useMessageStore();
+  const { fetchHistory, deleteMessage, removeMessage, updateReactions } = useMessageStore();
   const connectionId = useSocketStore((s) => s.connectionId);
   const [error, setError] = useState<string | null>(null);
 
@@ -65,8 +65,15 @@ export function useMessages(channelId: string) {
 
     socket.on('message:deleted', handleDeleted);
 
+    const handleReactionUpdated = ({ messageId, channelId: cId, reactions }: WsEvents.ReactionUpdated) => {
+      if (cId !== channelId) return;
+      updateReactions(channelId, messageId, reactions);
+    };
+    socket.on('reaction:updated', handleReactionUpdated);
+
     return () => {
       socket.off('message:deleted', handleDeleted);
+      socket.off('reaction:updated', handleReactionUpdated);
       // Cancel any pending auto-remove timers for this channel
       cleanupTimers.current.forEach(clearTimeout);
       cleanupTimers.current.clear();

@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Send, X, CornerUpLeft, AtSign } from 'lucide-react';
+import { Send, X, CornerUpLeft, AtSign, Smile } from 'lucide-react';
 import { Message } from '@onyx/types';
 import { getSocket } from '../../hooks/useSocket';
 import { useMembersStore, Member } from '../../stores/membersStore';
 import { useMobileCtx } from '../../context/MobileContext';
 import { Avatar } from '../ui/Avatar';
+import { EmojiPicker } from '../ui/EmojiPicker';
 
 interface Props {
   channelId: string;
@@ -19,9 +20,10 @@ const EVERYONE: Member = { id: '__everyone__', username: 'everyone', displayName
 
 export function MessageInput({ channelId, replyTo, onCancelReply }: Props) {
   const { isMobile } = useMobileCtx();
-  const [hasContent,    setHasContent]    = useState(false);
-  const [mentionQuery,  setMentionQuery]  = useState<string | null>(null); // null = closed
-  const [mentionIndex,  setMentionIndex]  = useState(0);
+  const [hasContent,       setHasContent]      = useState(false);
+  const [mentionQuery,     setMentionQuery]     = useState<string | null>(null);
+  const [mentionIndex,     setMentionIndex]     = useState(0);
+  const [emojiPickerOpen,  setEmojiPickerOpen]  = useState(false);
   const textareaRef    = useRef<HTMLTextAreaElement>(null);
   const isTyping        = useRef(false);
   const typingTimer     = useRef<ReturnType<typeof setTimeout>  | null>(null);
@@ -296,6 +298,50 @@ export function MessageInput({ channelId, replyTo, onCancelReply }: Props) {
           <span style={{ fontSize: 11, color: 'var(--color-danger)', flexShrink: 0 }}>
             {MAX_LENGTH - charCount}
           </span>
+        )}
+
+        {/* Emoji picker button */}
+        {!isMobile && (
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={() => setEmojiPickerOpen((v) => !v)}
+              title="Emoji"
+              style={{
+                width: 30, height: 30, borderRadius: 8, border: 'none',
+                background: emojiPickerOpen ? 'rgba(139,124,248,0.12)' : 'transparent',
+                color: emojiPickerOpen ? 'var(--color-accent)' : 'var(--color-muted)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', transition: 'background 0.1s, color 0.1s',
+              }}
+            >
+              <Smile size={16} />
+            </button>
+
+            {emojiPickerOpen && (
+              <div style={{ position: 'absolute', bottom: '110%', right: 0, zIndex: 100 }}>
+                <EmojiPicker
+                  onSelect={(emoji) => {
+                    const ta = textareaRef.current;
+                    if (!ta) return;
+                    const start = ta.selectionStart ?? ta.value.length;
+                    const end   = ta.selectionEnd   ?? ta.value.length;
+                    const next  = ta.value.slice(0, start) + emoji + ta.value.slice(end);
+                    // Manually set the value and fire React's synthetic change
+                    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')!.set!;
+                    nativeSetter.call(ta, next);
+                    ta.dispatchEvent(new Event('input', { bubbles: true }));
+                    // Restore cursor after the inserted emoji
+                    requestAnimationFrame(() => {
+                      ta.selectionStart = ta.selectionEnd = start + emoji.length;
+                      ta.focus();
+                    });
+                  }}
+                  onClose={() => setEmojiPickerOpen(false)}
+                />
+              </div>
+            )}
+          </div>
         )}
 
         {/* Send button — 44×44 on mobile per HIG touch target guidelines */}
