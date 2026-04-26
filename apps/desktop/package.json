@@ -1,6 +1,6 @@
 {
   "name": "@onyx/desktop",
-  "version": "1.7.2",
+  "version": "1.8.0",
   "author": "Onyx",
   "description": "Onyx — Windows Desktop Application",
   "private": true,
