@@ -73,6 +73,16 @@ export function setupUpdater(win: BrowserWindow): void {
   autoUpdater.on('error', (err) => {
     log.error('[updater] Error:', err);
     win.setProgressBar(-1);
+
+    // "Cannot find latest.yml" just means the current GitHub release has no
+    // electron-builder artifacts — treat it the same as "up to date" rather
+    // than surfacing a confusing error message to the user.
+    if (err.message?.includes('latest.yml') || err.message?.includes('latest-mac.yml')) {
+      log.info('[updater] No updater artifacts in latest release — treating as up to date.');
+      send(win, { state: 'not-available' });
+      return;
+    }
+
     send(win, { state: 'error', message: err.message });
   });
 
