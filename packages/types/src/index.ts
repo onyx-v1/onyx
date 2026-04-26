@@ -5,7 +5,7 @@ export interface User {
   username: string;
   displayName: string;
   avatarUrl?: string | null;
-  role: 'ADMIN' | 'MEMBER';
+  role: 'ADMIN' | 'MODERATOR' | 'MEMBER';
   createdAt: string | Date;
 }
 
@@ -15,6 +15,7 @@ export interface Channel {
   type: 'TEXT' | 'VOICE';
   position: number;
   communityId: string;
+  private?: boolean;
 }
 
 export interface Message {

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AdminGuard } from '../auth/admin.guard';
 import { ChannelsService } from './channels.service';
@@ -10,8 +10,8 @@ export class ChannelsController {
   constructor(private channelsService: ChannelsService) {}
 
   @Get()
-  findAll() {
-    return this.channelsService.findAll();
+  findAll(@Req() req: any) {
+    return this.channelsService.findAll(req.user.role);
   }
 
   @Post()

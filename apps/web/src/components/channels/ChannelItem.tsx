@@ -32,6 +32,11 @@ export function ChannelItem({ channel, isActive, onClick }: Props) {
       {/* Channel name */}
       <span className="truncate flex-1 text-left">{channel.name}</span>
 
+      {/* Private indicator */}
+      {channel.private && (
+        <span style={{ fontSize: 10, opacity: 0.5, flexShrink: 0 }} title="Private channel">🔒</span>
+      )}
+
       {/* ── Badges (right side) — only when not active ─────────────── */}
       {!isActive && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>

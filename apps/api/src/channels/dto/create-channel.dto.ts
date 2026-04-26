@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsOptional, IsNumber, MinLength, MaxLength, Matches } from 'class-validator';
+import { IsString, IsEnum, IsOptional, IsNumber, IsBoolean, MinLength, MaxLength, Matches } from 'class-validator';
 
 export enum ChannelTypeDto {
   TEXT = 'TEXT',
@@ -20,4 +20,8 @@ export class CreateChannelDto {
   @IsOptional()
   @IsNumber()
   position?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  private?: boolean;
 }

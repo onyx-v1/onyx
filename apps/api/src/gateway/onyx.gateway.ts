@@ -14,6 +14,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { FcmService } from '../notifications/fcm.service';
 import { DevicesService } from '../devices/devices.service';
+import { can } from '../common/permissions';
 
 interface AuthSocket extends Socket {
   user: { id: string; username: string; displayName: string; role: string };
@@ -265,7 +266,8 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   ) {
     const message = await this.prisma.message.findUnique({ where: { id: data.messageId } });
     if (!message) return;
-    if (client.user.role !== 'ADMIN' && message.authorId !== client.user.id) return;
+    const isOwn = message.authorId === client.user.id;
+    if (!isOwn && !can.deleteAnyMessage(client.user.role as any)) return;
 
     await this.prisma.message.update({
       where: { id: data.messageId },
@@ -282,7 +284,7 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     @ConnectedSocket() client: AuthSocket,
     @MessageBody() data: { messageId: string },
   ) {
-    if (client.user.role !== 'ADMIN') return; // admins only
+    if (!can.pinMessage(client.user.role as any)) return;
 
     const existing = await this.prisma.message.findUnique({
       where: { id: data.messageId },
@@ -365,6 +367,25 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       channelId: message.channelId,
       reactions: message.reactions,
     });
+  }
+
+  // ── Member Management ────────────────────────────────────────────────────────
+  @SubscribeMessage('member:kick')
+  async handleMemberKick(
+    @ConnectedSocket() client: AuthSocket,
+    @MessageBody() data: { userId: string },
+  ) {
+    if (!can.kickFromServer(client.user.role as any)) return;
+
+    // Disconnect ALL sockets belonging to the target user
+    const sockets = await this.server.fetchSockets();
+    for (const s of sockets) {
+      if ((s as any).user?.id === data.userId) {
+        (s as any).emit('kicked', { reason: 'You were kicked from the server' });
+        s.disconnect(true);
+      }
+    }
+    this.server.emit('member:kicked', { userId: data.userId });
   }
 
   // ── Voice ─────────────────────────────────────────────────────────────────────

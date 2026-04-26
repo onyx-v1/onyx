@@ -1,8 +1,9 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto, UpdateDisplayNameDto } from './dto/create-user.dto';
+import { can } from '../common/permissions';
 
 const USER_SELECT = {
   id: true,
@@ -160,5 +161,43 @@ export class UsersService {
     await this.prisma.user.delete({ where: { id } });
 
     return { ok: true };
+  }
+
+  /** Assign MODERATOR to a member, or demote a MODERATOR back to MEMBER. Admin-only. */
+  async assignRole(targetId: string, role: 'MODERATOR' | 'MEMBER', callerId: string) {
+    const caller = await this.prisma.user.findUnique({ where: { id: callerId } });
+    if (!caller || !can.assignModerator(caller.role as any)) {
+      throw new ForbiddenException('Only Admins can assign roles');
+    }
+
+    const target = await this.prisma.user.findUnique({ where: { id: targetId } });
+    if (!target) throw new NotFoundException('User not found');
+    if (target.role === 'ADMIN') throw new ForbiddenException('Cannot change the Admin role');
+
+    return this.prisma.user.update({
+      where:  { id: targetId },
+      data:   { role },
+      select: USER_SELECT,
+    });
+  }
+
+  /**
+   * Kick a user from the server — clears their sessions so their next
+   * refresh forces re-login. The socket disconnect happens in the gateway
+   * which subscribes to the member:kick event.
+   */
+  async kickUser(targetId: string, callerId: string) {
+    const caller = await this.prisma.user.findUnique({ where: { id: callerId } });
+    if (!caller || !can.kickFromServer(caller.role as any)) {
+      throw new ForbiddenException('Insufficient permissions to kick');
+    }
+
+    const target = await this.prisma.user.findUnique({ where: { id: targetId } });
+    if (!target) throw new NotFoundException('User not found');
+    if (target.role === 'ADMIN') throw new ForbiddenException('Cannot kick an Admin');
+
+    // Clear DB sessions so the token is invalidated on next request
+    await this.prisma.session.deleteMany({ where: { userId: targetId } });
+    return { ok: true, userId: targetId };
   }
 }

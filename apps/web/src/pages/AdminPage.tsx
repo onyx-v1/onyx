@@ -11,7 +11,7 @@ import { User, Channel } from '@onyx/types';
 import { Modal } from '../components/ui/Modal';
 import { Avatar } from '../components/ui/Avatar';
 
-type Tab = 'users' | 'channels' | 'settings';
+type Tab = 'users' | 'channels' | 'roles' | 'settings';
 
 export function AdminPage() {
   const navigate   = useNavigate();
@@ -32,6 +32,7 @@ export function AdminPage() {
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const [newChannelName, setNewChannelName]       = useState('');
   const [newChannelType, setNewChannelType]       = useState<'TEXT' | 'VOICE'>('TEXT');
+  const [newChannelPrivate, setNewChannelPrivate] = useState(false);
 
   // ── Settings ─────────────────────────────────────────────────────
   const [serverName,    setServerName]    = useState('');
@@ -89,10 +90,15 @@ export function AdminPage() {
   const handleCreateChannel = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { data } = await apiClient.post('/channels', { name: newChannelName, type: newChannelType });
+      const { data } = await apiClient.post('/channels', {
+        name: newChannelName,
+        type: newChannelType,
+        private: newChannelPrivate,
+      });
       addChannel(data);
       setShowCreateChannel(false);
       setNewChannelName('');
+      setNewChannelPrivate(false);
     } catch (err: any) {
       alert(err.response?.data?.message ?? 'Failed to create channel');
     }
@@ -133,8 +139,9 @@ export function AdminPage() {
 
   /* ── Render ───────────────────────────────────────────────────── */
   const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
-    { key: 'users',    label: 'Users',    icon: <Users size={14} /> },
-    { key: 'channels', label: 'Channels', icon: <Hash size={14} />  },
+    { key: 'users',    label: 'Users',    icon: <Users size={14} />    },
+    { key: 'channels', label: 'Channels', icon: <Hash size={14} />     },
+    { key: 'roles',    label: 'Roles',    icon: <Shield size={14} />   },
     { key: 'settings', label: 'Settings', icon: <Settings size={14} /> },
   ];
 
@@ -205,13 +212,57 @@ export function AdminPage() {
                   {ch.type === 'TEXT' ? <Hash size={16} className="text-muted flex-shrink-0" /> : <Volume2 size={16} className="text-muted flex-shrink-0" />}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-primary">{ch.name}</p>
-                    <p className="text-xs text-muted">{ch.type}</p>
+                    <p className="text-xs text-muted">{ch.type}{(ch as any).private ? ' · 🔒 Private' : ''}</p>
                   </div>
                   <button onClick={() => handleDeleteChannel(ch.id, ch.name)} className="btn-ghost p-2 text-muted hover:text-danger transition-colors">
                     <Trash2 size={14} />
                   </button>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Roles */}
+          {tab === 'roles' && (
+            <div className="flex flex-col gap-3">
+              <div style={{ padding: '10px 14px', background: 'rgba(139,124,248,0.08)', border: '1px solid rgba(139,124,248,0.2)', borderRadius: 8, fontSize: 13, color: 'var(--color-muted)' }}>
+                Promote trusted members to <strong style={{ color: 'var(--color-accent)' }}>Moderator</strong> — they can delete messages, kick users, and access private channels.
+              </div>
+              {loading && <Loader2 size={16} className="animate-spin text-muted mx-auto mt-8" />}
+              {users.filter((u) => u.role !== 'ADMIN').map((user) => {
+                const isMod = user.role === 'MODERATOR';
+                return (
+                  <div key={user.id} className="flex items-center gap-3 p-3 bg-input rounded-xl">
+                    <Avatar displayName={user.displayName} size="sm" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-primary">{user.displayName}</p>
+                      <p className="text-xs text-muted font-mono">{user.username}</p>
+                    </div>
+                    {/* Role badge */}
+                    {isMod && (
+                      <span style={{ fontSize: 10, background: 'rgba(59,130,246,0.15)', color: '#60a5fa', padding: '2px 8px', borderRadius: 20, fontWeight: 700, letterSpacing: '0.04em' }}>
+                        MOD
+                      </span>
+                    )}
+                    {/* Toggle button */}
+                    <button
+                      onClick={async () => {
+                        try {
+                          const newRole = isMod ? 'MEMBER' : 'MODERATOR';
+                          await apiClient.patch(`/users/${user.id}/role`, { role: newRole });
+                          setUsers((prev) => prev.map((u) => u.id === user.id ? { ...u, role: newRole } : u));
+                        } catch (err: any) {
+                          alert(err.response?.data?.message ?? 'Failed to update role');
+                        }
+                      }}
+                      className={isMod ? 'btn-secondary' : 'btn-primary'}
+                      style={{ fontSize: 12, padding: '5px 12px', whiteSpace: 'nowrap' }}
+                    >
+                      {isMod ? 'Remove Mod' : 'Make Mod'}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
 
@@ -357,6 +408,19 @@ export function AdminPage() {
                 ))}
               </div>
             </div>
+            {/* Private toggle */}
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '10px 14px', background: 'var(--color-base)', borderRadius: 10 }}>
+              <input
+                type="checkbox"
+                checked={newChannelPrivate}
+                onChange={(e) => setNewChannelPrivate(e.target.checked)}
+                style={{ width: 16, height: 16, accentColor: 'var(--color-accent)', cursor: 'pointer' }}
+              />
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-primary)', margin: 0 }}>🔒 Private channel</p>
+                <p style={{ fontSize: 11, color: 'var(--color-muted)', margin: 0 }}>Only Admins and Moderators can see this channel</p>
+              </div>
+            </label>
             <div className="flex justify-end gap-2 mt-2">
               <button type="button" onClick={() => setShowCreateChannel(false)} className="btn-secondary">Cancel</button>
               <button type="submit" disabled={!newChannelName} className="btn-primary">Create Channel</button>

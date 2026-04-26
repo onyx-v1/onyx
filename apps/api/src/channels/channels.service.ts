@@ -1,13 +1,16 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateChannelDto } from './dto/create-channel.dto';
+import { can, AppRole } from '../common/permissions';
 
 @Injectable()
 export class ChannelsService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll() {
+  /** Return channels the requesting role is allowed to see. Members cannot see private ones. */
+  async findAll(role: AppRole) {
     return this.prisma.channel.findMany({
+      where: can.accessPrivateChannels(role) ? undefined : { private: false },
       orderBy: [{ type: 'asc' }, { position: 'asc' }],
     });
   }
@@ -27,9 +30,10 @@ export class ChannelsService {
 
     return this.prisma.channel.create({
       data: {
-        name: dto.name.toLowerCase().replace(/\s+/g, '-'),
-        type: dto.type as any,
-        position: dto.position ?? (maxPos._max.position ?? -1) + 1,
+        name:       dto.name.toLowerCase().replace(/\s+/g, '-'),
+        type:       dto.type as any,
+        position:   dto.position ?? (maxPos._max.position ?? -1) + 1,
+        private:    dto.private ?? false,
         communityId: community.id,
       },
     });
