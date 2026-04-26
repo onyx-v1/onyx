@@ -15,10 +15,11 @@ const CONNECTOR_W = AVATAR_W / 2 + COL_GAP; // 30px — aligns with avatar centr
 
 /* ── Types ───────────────────────────────────────────────────────────── */
 interface Props {
-  message:       Message;
-  compact:       boolean;
-  onReply:       (msg: Message) => void;   // stable ref from MessageList
-  isHighlighted?: boolean;
+  message:          Message;
+  compact:          boolean;
+  onReply:          (msg: Message) => void;    // stable ref from MessageList
+  onJumpToMessage:  (messageId: string) => void; // stable ref from MessageList
+  isHighlighted?:   boolean;
 }
 
 
@@ -52,6 +53,7 @@ export const MessageItem = memo(function MessageItem({
   message,
   compact,
   onReply,
+  onJumpToMessage,
   isHighlighted,
 }: Props) {
   const { user }    = useAuthStore();
@@ -160,12 +162,19 @@ export const MessageItem = memo(function MessageItem({
               avatarUrl={message.replyTo.author.avatarUrl}
               size="xs"
             />
-            <span
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!message.replyTo!.deleted) onJumpToMessage(message.replyTo!.id);
+              }}
+              title={message.replyTo.deleted ? undefined : 'Jump to original message'}
               style={{
+                background: 'none', border: 'none', padding: 0,
                 marginLeft: 6, fontSize: 13,
                 color: 'var(--color-muted)',
                 overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
-                cursor: 'pointer',
+                cursor: message.replyTo.deleted ? 'default' : 'pointer',
+                textAlign: 'left', maxWidth: '100%',
               }}
             >
               <span style={{ fontWeight: 600, color: 'var(--color-accent-hover)', marginRight: 4 }}>
@@ -176,7 +185,7 @@ export const MessageItem = memo(function MessageItem({
                   ? 'Original message was deleted'
                   : message.replyTo.content}
               </span>
-            </span>
+            </button>
           </div>
         )}
 

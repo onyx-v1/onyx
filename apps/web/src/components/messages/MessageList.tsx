@@ -98,6 +98,12 @@ export function MessageList({ messages, hasMore, isLoading, onLoadMore, onReply 
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightId = searchParams.get('highlight');
 
+  // Stable jump-to-message: sets ?highlight=id which the effect below picks up
+  const stableOnJump = useCallback((msgId: string) => {
+    setSearchParams((p) => { p.set('highlight', msgId); return p; }, { replace: true });
+  }, [setSearchParams]);
+
+
   // Memoize grouping — only recomputes when the messages array changes
   const grouped = useMemo(() => groupMessages(messages), [messages]);
 
@@ -184,6 +190,7 @@ export function MessageList({ messages, hasMore, isLoading, onLoadMore, onReply 
             message={msg}
             compact={compact}
             onReply={stableOnReply}
+            onJumpToMessage={stableOnJump}
             isHighlighted={msg.id === highlightId}
           />
         );
@@ -191,7 +198,7 @@ export function MessageList({ messages, hasMore, isLoading, onLoadMore, onReply 
     });
 
     return out;
-  }, [grouped, highlightId, stableOnReply]);
+  }, [grouped, highlightId, stableOnReply, stableOnJump]);
 
   return (
     <div

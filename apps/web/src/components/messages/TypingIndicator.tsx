@@ -45,7 +45,7 @@ export function TypingIndicator({ channelId }: Props) {
               width: 5,
               height: 5,
               borderRadius: '50%',
-              background: 'var(--color-muted)',
+              background: 'var(--color-accent)',
               animation: 'bounce-dot 1.2s ease-in-out infinite',
               animationDelay: `${i * 0.2}s`,
             }}
