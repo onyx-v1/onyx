@@ -18,11 +18,8 @@ export function MessageSelectionBar({ channelId }: Props) {
 
   const [copied, setCopied] = useState(false);
 
-  // Only render when selection mode is active and something is selected
-  if (!active || selectedIds.size === 0) return null;
-
-  const count = selectedIds.size;
-
+  // ── Handlers must be declared BEFORE any conditional return ────────────────
+  // Violating this causes "Rendered more hooks than during the previous render"
   const handleCopy = useCallback(() => {
     const { messages } = useMessageStore.getState();
     const rows = (messages.get(channelId) ?? [])
@@ -55,9 +52,13 @@ export function MessageSelectionBar({ channelId }: Props) {
       const socket = getSocket();
       deletable.forEach((m) => socket?.emit('message:delete', { messageId: m.id }));
       clearSelection();
-      // Inline "Message deleted" placeholder + 3s auto-remove handled by useMessages handler
     });
   }, [channelId, selectedIds, isAdmin, user?.id, openDeleteConfirm, clearSelection]);
+
+  // Only render when selection mode is active and something is selected
+  if (!active || selectedIds.size === 0) return null;
+
+  const count = selectedIds.size;
 
   return (
     <div
