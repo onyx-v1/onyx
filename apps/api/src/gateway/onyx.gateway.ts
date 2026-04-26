@@ -58,7 +58,7 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     return entry.count > LIMIT;
   }
 
-  // ── Throttle: one typing:update broadcast per channel per 400 ms ─────────────
+  // ── Throttle: one typing:update broadcast per channel per 100 ms ─────────────
   private typingThrottle = new Map<string, NodeJS.Timeout>();
 
   // ── Debounce: presence:update batched per tick to avoid N broadcasts on mass joins
@@ -319,7 +319,7 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     const typers = this.typingState.get(channelId)!;
     if (typers.has(client.user.id)) clearTimeout(typers.get(client.user.id)!.timer);
 
-    const timer = setTimeout(() => this.stopTyping(channelId, client.user.id), 5000);
+    const timer = setTimeout(() => this.stopTyping(channelId, client.user.id), 10_000);
     typers.set(client.user.id, { displayName: client.user.displayName, timer });
 
     this.broadcastTypingThrottled(channelId);
@@ -401,9 +401,8 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     this.broadcastTypingThrottled(channelId);
   }
 
-  /** Throttled typing broadcast: max 1 emit per channel per 400 ms.
-   *  With 50 users typing simultaneously, this caps at 2-3 broadcasts/sec
-   *  instead of 50 broadcasts/sec. */
+  /** Throttled typing broadcast: max 1 emit per channel per 100 ms.
+   *  Reduces the perceived delay before other clients see the indicator. */
   private broadcastTypingThrottled(channelId: string) {
     if (this.typingThrottle.has(channelId)) return; // already scheduled
     this.typingThrottle.set(
@@ -411,7 +410,7 @@ export class OnyxGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       setTimeout(() => {
         this.typingThrottle.delete(channelId);
         this.emitTyping(channelId);
-      }, 400),
+      }, 100),
     );
   }
 

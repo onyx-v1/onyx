@@ -22,10 +22,11 @@ export function MessageInput({ channelId, replyTo, onCancelReply }: Props) {
   const [hasContent,    setHasContent]    = useState(false);
   const [mentionQuery,  setMentionQuery]  = useState<string | null>(null); // null = closed
   const [mentionIndex,  setMentionIndex]  = useState(0);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const isTyping    = useRef(false);
-  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const textareaRef    = useRef<HTMLTextAreaElement>(null);
+  const isTyping        = useRef(false);
+  const typingTimer     = useRef<ReturnType<typeof setTimeout>  | null>(null);
+  const typingRenewal   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const dropdownRef     = useRef<HTMLDivElement>(null);
 
   const members = useMembersStore((s) => s.members);
 
@@ -43,21 +44,30 @@ export function MessageInput({ channelId, replyTo, onCancelReply }: Props) {
 
   /* ── Stop typing ─────────────────────────────────────────────────── */
   const stopTyping = useCallback(() => {
-    if (typingTimer.current) { clearTimeout(typingTimer.current); typingTimer.current = null; }
+    if (typingTimer.current)   { clearTimeout(typingTimer.current);   typingTimer.current   = null; }
+    if (typingRenewal.current) { clearInterval(typingRenewal.current); typingRenewal.current = null; }
     if (isTyping.current) {
       isTyping.current = false;
       getSocket()?.emit('typing:stop', { channelId });
     }
   }, [channelId]);
 
-  /* ── Start typing ────────────────────────────────────────────────── */
+  /* ── Start typing ─────────────────────────────────────────────────── */
   const startTyping = useCallback(() => {
     if (!isTyping.current) {
       isTyping.current = true;
       getSocket()?.emit('typing:start', { channelId });
+
+      // Heartbeat: re-send every 4 s so the server-side 10 s timer never
+      // expires while the user is still actively composing a message.
+      typingRenewal.current = setInterval(() => {
+        if (isTyping.current) getSocket()?.emit('typing:start', { channelId });
+      }, 4_000);
     }
+
+    // Reset idle timer — user must pause 8 s before indicator disappears
     if (typingTimer.current) clearTimeout(typingTimer.current);
-    typingTimer.current = setTimeout(stopTyping, 3000);
+    typingTimer.current = setTimeout(stopTyping, 8_000);
   }, [channelId, stopTyping]);
 
   /* ── Clean up on channel change ─────────────────────────────────── */
