@@ -7,6 +7,7 @@ import { LoginPage } from './pages/LoginPage';
 import { ChannelPage } from './pages/ChannelPage';
 import { VoicePage } from './pages/VoicePage';
 import { AdminPage } from './pages/AdminPage';
+import { SettingsPage } from './pages/SettingsPage';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -39,6 +40,16 @@ export function AppRouter() {
             <AdminRoute>
               <AdminPage />
             </AdminRoute>
+          </PrivateRoute>
+        }
+      />
+
+      {/* ── Settings — full-page overlay ─────────────────────── */}
+      <Route
+        path="/settings"
+        element={
+          <PrivateRoute>
+            <SettingsPage />
           </PrivateRoute>
         }
       />

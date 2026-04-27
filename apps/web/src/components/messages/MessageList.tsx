@@ -209,65 +209,76 @@ export function MessageList({ messages, hasMore, isLoading, onLoadMore, onReply 
 
   const chatBackground = useThemeStore((s) => s.chatBackground);
 
-  const bgStyle: React.CSSProperties = chatBackground
-    ? {
-        backgroundImage:    `url('${chatBgUrl(chatBackground)}')`,
-        backgroundSize:     'cover',
-        backgroundPosition: 'center',
-        backgroundAttachment: 'local',
-      }
-    : {};
-
   return (
-    <div
-      ref={containerRef}
-      onScroll={handleScroll}
-      style={{
-        flex: 1, overflowY: 'auto', padding: '8px 0 4px',
-        display: 'flex', flexDirection: 'column', position: 'relative',
-        ...bgStyle,
-      }}
-    >
-      {/* Load-older spinner */}
-      {isLoading && (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0' }}>
-          <Loader2 size={16} style={{ color: 'var(--color-muted)', animation: 'spin 1s linear infinite' }} />
-        </div>
-      )}
+    /* Outer wrapper: holds the fixed background + the scrollable content */
+    <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
 
-      {/* Messages with day separators */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {renderItems}
-      </div>
-
-      {/* Scroll-to-bottom button */}
-      {newCount > 0 && (
-        <button
-          onClick={() => {
-            bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-            setNewCount(0);
-          }}
+      {/* Background layer — absolutely positioned, never scrolls */}
+      {chatBackground && (
+        <div
+          aria-hidden="true"
           style={{
-            position: 'absolute', bottom: 8, left: '50%', transform: 'translateX(-50%)',
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: '6px 14px',
-            background: 'var(--color-accent)',
-            border: 'none', borderRadius: 20,
-            color: '#fff', fontSize: 12, fontWeight: 700,
-            cursor: 'pointer',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
-            animation: 'slideUp 0.2s ease-out',
-            zIndex: 10,
-            whiteSpace: 'nowrap',
+            position: 'absolute', inset: 0, zIndex: 0,
+            backgroundImage:    `url('${chatBgUrl(chatBackground)}')`,
+            backgroundSize:     'cover',
+            backgroundPosition: 'center',
+            pointerEvents:      'none',
           }}
-        >
-          <ChevronDown size={14} />
-          {newCount} new message{newCount !== 1 ? 's' : ''}
-        </button>
+        />
       )}
 
-      {/* Scroll-to-bottom anchor */}
-      <div ref={bottomRef} style={{ height: 1 }} />
+      {/* Scrollable messages — sits above the background */}
+      <div
+        ref={containerRef}
+        onScroll={handleScroll}
+        style={{
+          position: 'relative', zIndex: 1,
+          height: '100%', overflowY: 'auto',
+          padding: '8px 0 4px',
+          display: 'flex', flexDirection: 'column',
+        }}
+      >
+        {/* Load-older spinner */}
+        {isLoading && (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0' }}>
+            <Loader2 size={16} style={{ color: 'var(--color-muted)', animation: 'spin 1s linear infinite' }} />
+          </div>
+        )}
+
+        {/* Messages with day separators */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {renderItems}
+        </div>
+
+        {/* Scroll-to-bottom button */}
+        {newCount > 0 && (
+          <button
+            onClick={() => {
+              bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+              setNewCount(0);
+            }}
+            style={{
+              position: 'absolute', bottom: 8, left: '50%', transform: 'translateX(-50%)',
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '6px 14px',
+              background: 'var(--color-accent)',
+              border: 'none', borderRadius: 20,
+              color: '#fff', fontSize: 12, fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+              animation: 'slideUp 0.2s ease-out',
+              zIndex: 10,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <ChevronDown size={14} />
+            {newCount} new message{newCount !== 1 ? 's' : ''}
+          </button>
+        )}
+
+        {/* Scroll-to-bottom anchor */}
+        <div ref={bottomRef} style={{ height: 1 }} />
+      </div>
     </div>
   );
 }

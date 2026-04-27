@@ -11,15 +11,13 @@ import { ChannelSection } from '../channels/ChannelSection';
 import { Avatar } from '../ui/Avatar';
 import { ConnectionStatus } from '../ui/ConnectionStatus';
 import { AvatarUploadModal } from '../ui/AvatarUploadModal';
-import { SettingsModal } from '../ui/SettingsModal';
 
 export function Sidebar() {
   const navigate     = useNavigate();
   const location     = useLocation();
   const { isMobile, closeDrawer } = useMobileCtx();
 
-  const [showAvatarModal,   setShowAvatarModal]   = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
 
   const { channels, activeChannelId, setActiveChannel, communityName } = useChannelStore();
   const { user }     = useAuthStore();
@@ -124,9 +122,9 @@ export function Sidebar() {
               </button>
             )}
 
-            {/* Settings — opens modal with profile + downloads + logout */}
+            {/* Settings — opens full settings page */}
             <button
-              onClick={() => setShowSettingsModal(true)}
+              onClick={() => { navigate('/settings'); if (isMobile) closeDrawer(); }}
               className="btn-ghost p-1 rounded"
               title="Settings"
             >
@@ -137,8 +135,7 @@ export function Sidebar() {
       </aside>
 
       {/* ── Modals (outside aside to avoid stacking context issues) ── */}
-      {showAvatarModal   && <AvatarUploadModal onClose={() => setShowAvatarModal(false)} />}
-      {showSettingsModal && <SettingsModal     onClose={() => setShowSettingsModal(false)} />}
+      {showAvatarModal && <AvatarUploadModal onClose={() => setShowAvatarModal(false)} />}
     </>
   );
 }
