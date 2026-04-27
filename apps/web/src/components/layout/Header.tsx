@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { Pin, Bell } from 'lucide-react';
+import { Pin, Bell, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { useChannelStore } from '../../stores/channelStore';
+import { useThemeStore } from '../../stores/themeStore';
 import { SearchPanel } from '../ui/SearchPanel';
 import { PinnedPanel } from '../ui/PinnedPanel';
 
 export function Header() {
   const { channels, activeChannelId, communityName } = useChannelStore();
+  const { sidebarOpen, toggleSidebar } = useThemeStore();
   const activeChannel = channels.find((c) => c.id === activeChannelId);
   const location = useLocation();
   const [pinnedOpen, setPinnedOpen] = useState(false);
@@ -16,9 +18,16 @@ export function Header() {
 
   return (
     <header className="app-header">
-      {/* Server name */}
-      <div className="flex items-center gap-2 flex-shrink-0" style={{ width: 'var(--size-sidebar)' }}>
-        <div className="flex items-center gap-2">
+      {/* Server name area — collapses width with sidebar */}
+      <div
+        style={{
+          width: sidebarOpen ? 'var(--size-sidebar)' : '0px',
+          overflow: 'hidden',
+          flexShrink: 0,
+          transition: 'width 0.25s cubic-bezier(0.4,0,0.2,1)',
+        }}
+      >
+        <div className="flex items-center gap-2" style={{ width: 'var(--size-sidebar)', paddingRight: '1rem' }}>
           <div className="w-6 h-6 rounded-md overflow-hidden flex items-center justify-center bg-transparent">
             <img src="/onyx-logo.png" alt="Onyx" className="w-full h-full object-cover" />
           </div>
@@ -26,11 +35,26 @@ export function Header() {
         </div>
       </div>
 
-      {/* Channel name */}
+      {/* Channel name row — starts with toggle button */}
       <div className="flex-1 flex items-center gap-2 pl-3">
+        {/* Sidebar toggle */}
+        <button
+          onClick={toggleSidebar}
+          title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+          className="btn-ghost p-1.5 rounded-lg"
+          style={{ flexShrink: 0, color: 'var(--color-muted)', transition: 'color 0.15s' }}
+          onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-primary)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-muted)')}
+        >
+          {sidebarOpen
+            ? <PanelLeftClose size={17} />
+            : <PanelLeftOpen  size={17} />
+          }
+        </button>
+
         {activeChannel && (
           <>
-            <span className="text-muted text-xl">
+            <span className="text-muted text-xl" style={{ marginLeft: 2 }}>
               {activeChannel.type === 'TEXT' ? '#' : '🔊'}
             </span>
             <span className="font-semibold text-base text-primary">{activeChannel.name}</span>

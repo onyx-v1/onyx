@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Settings, Shield } from 'lucide-react';
+import { useThemeStore } from '../../stores/themeStore';
 import { useChannelStore } from '../../stores/channelStore';
 import { useAuthStore } from '../../stores/authStore';
 import { usePresenceStore, selectIsOnline } from '../../stores/presenceStore';
@@ -18,6 +19,7 @@ export function Sidebar() {
   const { isMobile, closeDrawer } = useMobileCtx();
 
   const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const sidebarOpen = useThemeStore((s) => s.sidebarOpen);
 
   const { channels, activeChannelId, setActiveChannel, communityName } = useChannelStore();
   const { user }     = useAuthStore();
@@ -45,7 +47,10 @@ export function Sidebar() {
         style={isMobile ? {
           display: 'flex', flexDirection: 'column',
           flex: 1, minHeight: 0, width: '100%',
-        } : undefined}
+        } : {
+          transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
+          transition: 'transform 0.25s cubic-bezier(0.4,0,0.2,1)',
+        }}
         className={isMobile ? undefined : 'app-sidebar'}
       >
         {/* ── Community name ───────────────────────────────────────── */}

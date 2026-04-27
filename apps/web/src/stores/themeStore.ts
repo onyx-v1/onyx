@@ -44,9 +44,11 @@ export const THEMES: ThemeConfig[] = [
 
 interface ThemeState {
   theme:             ThemeId;
-  chatBackground:    string | null;   // null = no background
+  chatBackground:    string | null;
+  sidebarOpen:       boolean;
   setTheme:          (id: ThemeId) => void;
   setChatBackground: (id: string | null) => void;
+  toggleSidebar:     () => void;
 }
 
 /** Writes data-theme attribute to <html> — CSS variables do the rest */
@@ -59,11 +61,13 @@ export const useThemeStore = create<ThemeState>()(
     (set) => ({
       theme: 'dark',
       chatBackground: null,
+      sidebarOpen: true,
       setTheme: (id) => {
         set({ theme: id });
         applyTheme(id);
       },
       setChatBackground: (id) => set({ chatBackground: id }),
+      toggleSidebar:     ()   => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
     }),
     { name: 'onyx-theme' },
   ),

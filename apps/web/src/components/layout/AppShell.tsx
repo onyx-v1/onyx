@@ -14,6 +14,7 @@ import { DeleteConfirmModal } from '../ui/DeleteConfirmModal';
 import { DeleteToast } from '../ui/DeleteToast';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
+import { useThemeStore } from '../../stores/themeStore';
 
 export function AppShell() {
   useSocket();
@@ -24,6 +25,7 @@ export function AppShell() {
   const isMobile     = useIsMobile();
   const navigate     = useNavigate();
   const connectionId = useSocketStore((s) => s.connectionId);
+  const sidebarOpen  = useThemeStore((s) => s.sidebarOpen);
   const { fetchCommunity, activeChannelId, channels, setChannels } = useChannelStore();
   const fetchMembers = useMembersStore((s) => s.fetchMembers);
 
@@ -74,7 +76,10 @@ export function AppShell() {
             position: 'fixed', inset: 0,
             background: 'var(--color-base)',
             display: 'flex', flexDirection: 'column',
-          } : undefined}
+          } : {
+            left: sidebarOpen ? 'var(--size-sidebar)' : '0px',
+            transition: 'left 0.25s cubic-bezier(0.4,0,0.2,1)',
+          }}
           className={isMobile ? undefined : 'app-main'}
         >
           <Outlet />
