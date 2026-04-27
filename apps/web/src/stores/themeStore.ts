@@ -3,6 +3,22 @@ import { persist } from 'zustand/middleware';
 
 export type ThemeId = 'dark' | 'purple';
 
+export interface ChatBg {
+  id:    string;   // filename without path e.g. "Midnight Atlas.png"
+  label: string;   // display name
+}
+
+export const CHAT_BACKGROUNDS: ChatBg[] = [
+  { id: 'Midnight Atlas.png', label: 'Midnight Atlas'  },
+  { id: 'Void Marble.png',    label: 'Void Marble'     },
+  { id: 'Nebula Grid.png',    label: 'Nebula Grid'     },
+  { id: 'Obsidian Vein.png',  label: 'Obsidian Vein'   },
+];
+
+export function chatBgUrl(id: string) {
+  return `/chat-backgrounds/${encodeURIComponent(id)}`;
+}
+
 export interface ThemeConfig {
   id:          ThemeId;
   label:       string;
@@ -27,8 +43,10 @@ export const THEMES: ThemeConfig[] = [
 ];
 
 interface ThemeState {
-  theme: ThemeId;
-  setTheme: (id: ThemeId) => void;
+  theme:             ThemeId;
+  chatBackground:    string | null;   // null = no background
+  setTheme:          (id: ThemeId) => void;
+  setChatBackground: (id: string | null) => void;
 }
 
 /** Writes data-theme attribute to <html> — CSS variables do the rest */
@@ -40,10 +58,12 @@ export const useThemeStore = create<ThemeState>()(
   persist(
     (set) => ({
       theme: 'dark',
+      chatBackground: null,
       setTheme: (id) => {
         set({ theme: id });
         applyTheme(id);
       },
+      setChatBackground: (id) => set({ chatBackground: id }),
     }),
     { name: 'onyx-theme' },
   ),

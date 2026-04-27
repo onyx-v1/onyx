@@ -7,7 +7,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { Avatar } from './Avatar';
 import { platform } from '../../platform';
 import type { UpdateState } from '../../platform';
-import { useThemeStore, THEMES } from '../../stores/themeStore';
+import { useThemeStore, THEMES, CHAT_BACKGROUNDS, chatBgUrl } from '../../stores/themeStore';
 
 const GITHUB_REPO      = 'https://github.com/onyx-v1/onyx';
 // Pinned to last known-good release. Update when CI produces a verified exe.
@@ -27,7 +27,7 @@ interface Props { onClose: () => void; }
 
 export function SettingsModal({ onClose }: Props) {
   const { user, logout } = useAuthStore();
-  const { theme, setTheme } = useThemeStore();
+  const { theme, setTheme, chatBackground, setChatBackground } = useThemeStore();
   const overlayRef = useRef<HTMLDivElement>(null);
   const [updateStatus, setUpdateStatus] = useState<UpdateState | null>(null);
   const [manualChecking, setManualChecking] = useState(false);
@@ -308,6 +308,77 @@ export function SettingsModal({ onClose }: Props) {
                   }}>
                     {t.label}
                   </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Chat Background picker */}
+        <div style={{ padding: '12px 16px 14px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
+            <span style={{ fontSize: 13 }}>🖼️</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-subtle)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Chat Background
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+            {/* None option */}
+            <button
+              onClick={() => setChatBackground(null)}
+              style={{
+                height: 54, borderRadius: 8,
+                border: !chatBackground ? '2px solid var(--color-accent)' : '2px solid rgba(255,255,255,0.07)',
+                background: 'var(--color-base)',
+                cursor: 'pointer',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
+                transition: 'border-color 0.15s',
+              }}
+            >
+              <span style={{ fontSize: 16, opacity: 0.5 }}>✕</span>
+              <span style={{ fontSize: 9, color: 'var(--color-muted)', fontWeight: 600 }}>None</span>
+            </button>
+
+            {CHAT_BACKGROUNDS.map((bg) => {
+              const active = chatBackground === bg.id;
+              return (
+                <button
+                  key={bg.id}
+                  onClick={() => setChatBackground(bg.id)}
+                  title={bg.label}
+                  style={{
+                    height: 54, borderRadius: 8, overflow: 'hidden', padding: 0,
+                    border: active ? '2px solid var(--color-accent)' : '2px solid rgba(255,255,255,0.07)',
+                    backgroundImage: `url('${chatBgUrl(bg.id)}')`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    cursor: 'pointer',
+                    position: 'relative',
+                    transition: 'border-color 0.15s',
+                  }}
+                >
+                  {/* Label overlay */}
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    background: active ? 'rgba(139,124,248,0.35)' : 'rgba(0,0,0,0.40)',
+                    display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+                    padding: '0 2px 4px',
+                  }}>
+                    <span style={{ fontSize: 8, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: 1.2 }}>
+                      {bg.label}
+                    </span>
+                  </div>
+                  {active && (
+                    <div style={{
+                      position: 'absolute', top: 3, right: 3,
+                      width: 14, height: 14, borderRadius: '50%',
+                      background: 'var(--color-accent)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <span style={{ fontSize: 8, color: '#fff' }}>✓</span>
+                    </div>
+                  )}
                 </button>
               );
             })}

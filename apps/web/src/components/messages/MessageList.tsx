@@ -5,6 +5,7 @@ import { Message } from '@onyx/types';
 import { MessageOrPin, isPinEvent, PinEvent } from '../../stores/messageStore';
 import { MessageItem } from './MessageItem';
 import { istDayKey, formatDayLabelIST } from '../../utils/time';
+import { useThemeStore, chatBgUrl } from '../../stores/themeStore';
 
 interface Props {
   messages:   MessageOrPin[];
@@ -206,11 +207,26 @@ export function MessageList({ messages, hasMore, isLoading, onLoadMore, onReply 
     return out;
   }, [grouped, highlightId, stableOnReply, stableOnJump]);
 
+  const chatBackground = useThemeStore((s) => s.chatBackground);
+
+  const bgStyle: React.CSSProperties = chatBackground
+    ? {
+        backgroundImage:    `url('${chatBgUrl(chatBackground)}')`,
+        backgroundSize:     'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'local',
+      }
+    : {};
+
   return (
     <div
       ref={containerRef}
       onScroll={handleScroll}
-      style={{ flex: 1, overflowY: 'auto', padding: '8px 0 4px', display: 'flex', flexDirection: 'column', position: 'relative' }}
+      style={{
+        flex: 1, overflowY: 'auto', padding: '8px 0 4px',
+        display: 'flex', flexDirection: 'column', position: 'relative',
+        ...bgStyle,
+      }}
     >
       {/* Load-older spinner */}
       {isLoading && (
