@@ -211,7 +211,7 @@ export function MessageList({ messages, hasMore, isLoading, onLoadMore, onReply 
 
   return (
     /* Outer wrapper: holds the fixed background + the scrollable content */
-    <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+    <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
       {/* Background layer — absolutely positioned, never scrolls */}
       {chatBackground && (
@@ -233,7 +233,7 @@ export function MessageList({ messages, hasMore, isLoading, onLoadMore, onReply 
         onScroll={handleScroll}
         style={{
           position: 'relative', zIndex: 1,
-          height: '100%', overflowY: 'auto',
+          flex: 1, overflowY: 'auto',
           padding: '8px 0 4px',
           display: 'flex', flexDirection: 'column',
         }}
