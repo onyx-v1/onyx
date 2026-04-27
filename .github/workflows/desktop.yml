@@ -33,14 +33,36 @@ jobs:
         run: npm run build
         working-directory: apps/desktop
 
+      # Build the NSIS installer only — do NOT publish via electron-builder
+      # (--publish never avoids race conditions with the GitHub Releases API)
       - name: Package with electron-builder
         shell: powershell
         env:
           GH_TOKEN:     ${{ secrets.GITHUB_TOKEN }}
           ONYX_APP_URL: ${{ secrets.ONYX_APP_URL }}
-        run: npx electron-builder --win --config electron-builder.config.js --publish always
+        run: npx electron-builder --win --config electron-builder.config.js --publish never
         working-directory: apps/desktop
 
+      # Verify the installer was actually produced before uploading
+      - name: Verify installer exists
+        shell: powershell
+        run: |
+          $exe = Get-Item "apps/desktop/release/Onyx-Setup.exe" -ErrorAction Stop
+          Write-Host "Installer size: $($exe.Length) bytes"
+          if ($exe.Length -lt 10MB) { throw "Installer too small — build may have failed" }
+
+      # Upload the built installer + update manifests to the GitHub Release
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            apps/desktop/release/Onyx-Setup.exe
+            apps/desktop/release/Onyx-Setup.exe.blockmap
+            apps/desktop/release/latest.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Also keep a CI artifact copy for debugging
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:

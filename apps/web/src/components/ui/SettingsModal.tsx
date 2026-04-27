@@ -10,8 +10,9 @@ import type { UpdateState } from '../../platform';
 import { useThemeStore, THEMES } from '../../stores/themeStore';
 
 const GITHUB_REPO      = 'https://github.com/onyx-v1/onyx';
-const DOWNLOAD_WINDOWS = `${GITHUB_REPO}/releases/latest/download/Onyx-Setup.exe`;
-const DOWNLOAD_ANDROID = `${GITHUB_REPO}/releases/latest/download/Onyx.apk`;
+// Pinned to last known-good release. Update when CI produces a verified exe.
+const DOWNLOAD_WINDOWS = `${GITHUB_REPO}/releases/download/v1.7.0/Onyx-Setup.exe`;
+const DOWNLOAD_ANDROID = `${GITHUB_REPO}/releases/download/v1.7.0/Onyx.apk`;
 
 const electron = typeof window !== 'undefined'
   ? (window as any).__onyx as {
