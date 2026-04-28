@@ -11,6 +11,7 @@ import { CommunityModule } from './community/community.module';
 import { GatewayModule } from './gateway/gateway.module';
 import { DevicesModule } from './devices/devices.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { VoiceModule } from './voice/voice.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     GatewayModule,
     DevicesModule,
     NotificationsModule,
+    VoiceModule,
   ],
 })
 export class AppModule {}

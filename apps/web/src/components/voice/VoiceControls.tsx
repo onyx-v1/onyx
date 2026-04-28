@@ -1,49 +1,86 @@
+// ── VoiceControls — LiveKit edition ───────────────────────────────────────────
+// Wires mute/deafen/leave buttons directly to LiveKit local participant track.
+// No text-channel imports.
+
 import { Mic, MicOff, Headphones, EarOff, PhoneOff } from 'lucide-react';
+import { useLocalParticipant } from '@livekit/components-react';
 import { useVoiceStore } from '../../stores/voiceStore';
 import { useVoice } from '../../hooks/useVoice';
 
 export function VoiceControls() {
-  const { isMuted, isDeafened } = useVoiceStore();
-  const { toggleMute, toggleDeafen, leaveVoice } = useVoice();
+  const { localParticipant } = useLocalParticipant();
+  const { isMuted, isDeafened, setMuted, setDeafened } = useVoiceStore();
+  const { leaveVoice } = useVoice();
+
+  const handleMute = async () => {
+    const next = !isMuted;
+    await localParticipant.setMicrophoneEnabled(!next);
+    setMuted(next);
+  };
+
+  const handleDeafen = () => {
+    const next = !isDeafened;
+    setDeafened(next);
+    // Deafen = mute incoming audio via HTMLAudioElement volume
+    document.querySelectorAll<HTMLAudioElement>('audio[data-lk-audio]').forEach((el) => {
+      el.volume = next ? 0 : 1;
+    });
+  };
+
+  const btnBase: React.CSSProperties = {
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+    width: 64, padding: '12px 0', borderRadius: 12, border: 'none',
+    cursor: 'pointer', fontSize: 10, fontWeight: 600,
+    transition: 'all 0.15s',
+  };
 
   return (
-    <div className="flex items-center justify-center gap-4 px-6 py-5 border-t border-white/5 bg-base/50">
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+      padding: '16px 24px',
+      borderTop: '1px solid rgba(255,255,255,0.06)',
+      background: 'rgba(0,0,0,0.3)',
+    }}>
       {/* Mute */}
       <button
-        onClick={toggleMute}
-        className={`flex flex-col items-center gap-1 w-16 py-3 rounded-xl transition-all duration-150 ${
-          isMuted
-            ? 'bg-danger/20 text-danger hover:bg-danger/30'
-            : 'bg-elevated text-muted hover:bg-hover hover:text-primary'
-        }`}
+        onClick={handleMute}
         title={isMuted ? 'Unmute' : 'Mute'}
+        style={{
+          ...btnBase,
+          background: isMuted ? 'rgba(240,64,64,0.2)' : 'rgba(255,255,255,0.06)',
+          color: isMuted ? 'var(--color-danger)' : 'var(--color-muted)',
+        }}
       >
         {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
-        <span className="text-[10px]">{isMuted ? 'Unmute' : 'Mute'}</span>
+        {isMuted ? 'Unmute' : 'Mute'}
       </button>
 
       {/* Deafen */}
       <button
-        onClick={toggleDeafen}
-        className={`flex flex-col items-center gap-1 w-16 py-3 rounded-xl transition-all duration-150 ${
-          isDeafened
-            ? 'bg-warning/20 text-warning hover:bg-warning/30'
-            : 'bg-elevated text-muted hover:bg-hover hover:text-primary'
-        }`}
+        onClick={handleDeafen}
         title={isDeafened ? 'Undeafen' : 'Deafen'}
+        style={{
+          ...btnBase,
+          background: isDeafened ? 'rgba(245,158,11,0.2)' : 'rgba(255,255,255,0.06)',
+          color: isDeafened ? '#f59e0b' : 'var(--color-muted)',
+        }}
       >
         {isDeafened ? <EarOff size={20} /> : <Headphones size={20} />}
-        <span className="text-[10px]">{isDeafened ? 'Undeafen' : 'Deafen'}</span>
+        {isDeafened ? 'Undeafen' : 'Deafen'}
       </button>
 
       {/* Leave */}
       <button
         onClick={leaveVoice}
-        className="flex flex-col items-center gap-1 w-16 py-3 rounded-xl bg-danger/20 text-danger hover:bg-danger/40 transition-all duration-150"
         title="Leave voice"
+        style={{
+          ...btnBase,
+          background: 'rgba(240,64,64,0.2)',
+          color: 'var(--color-danger)',
+        }}
       >
         <PhoneOff size={20} />
-        <span className="text-[10px]">Leave</span>
+        Leave
       </button>
     </div>
   );
