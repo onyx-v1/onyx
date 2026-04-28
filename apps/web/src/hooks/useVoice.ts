@@ -1,15 +1,12 @@
 // ── useVoice — LiveKit edition ─────────────────────────────────────────────────
 // Completely isolated from text channel code.
-// Handles token fetch → store update → LiveKit connection lifecycle.
 
 import { useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useVoiceStore } from '../stores/voiceStore';
 import { apiClient } from '../api/client';
 
 export function useVoice() {
   const { connect, disconnect, setMuted, setDeafened, isMuted, isDeafened } = useVoiceStore();
-  const navigate = useNavigate();
 
   /** Fetch a LiveKit token from the API and store it — VoicePage will connect. */
   const joinVoice = useCallback(async (channelId: string) => {
@@ -24,14 +21,16 @@ export function useVoice() {
     }
   }, [connect]);
 
-  /** Disconnect from LiveKit room and go back to channel list. */
+  /**
+   * Leave the voice channel — just clears store state.
+   * VoicePage re-renders to show the join prompt (no navigation away from the channel).
+   */
   const leaveVoice = useCallback(() => {
     disconnect();
-    navigate('/');
-  }, [disconnect, navigate]);
+  }, [disconnect]);
 
-  const toggleMute    = useCallback(() => setMuted(!isMuted),       [isMuted,    setMuted]);
-  const toggleDeafen  = useCallback(() => setDeafened(!isDeafened), [isDeafened, setDeafened]);
+  const toggleMute   = useCallback(() => setMuted(!isMuted),       [isMuted,    setMuted]);
+  const toggleDeafen = useCallback(() => setDeafened(!isDeafened), [isDeafened, setDeafened]);
 
   return { joinVoice, leaveVoice, toggleMute, toggleDeafen };
 }

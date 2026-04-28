@@ -1,6 +1,5 @@
 // ── VoicePage — LiveKit edition ────────────────────────────────────────────────
-// Entry point for voice channels. Fetches LiveKit token, wraps VoiceRoom
-// in <LiveKitRoom> provider. Completely separate from text channel pages.
+// Entry point for voice channels. Completely separate from text channel pages.
 
 import { useParams, Navigate } from 'react-router-dom';
 import { LiveKitRoom } from '@livekit/components-react';
@@ -12,11 +11,22 @@ import { VoiceRoom } from '../components/voice/VoiceRoom';
 import { Mic, Volume2, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 
+// ── Discord-like audio constraints ─────────────────────────────────────────────
+// echoCancellation  → removes your own speaker audio from the mic
+// noiseSuppression  → kills background noise (fans, keyboard, etc.)
+// autoGainControl   → normalises volume levels automatically
+const AUDIO_OPTIONS = {
+  echoCancellation: true,
+  noiseSuppression: true,
+  autoGainControl:  true,
+  channelCount:     1,   // mono is sufficient for voice — halves bandwidth
+} as const;
+
 export function VoicePage() {
   const { channelId } = useParams<{ channelId: string }>();
   const { channels }  = useChannelStore();
   const { isConnected, livekitToken, livekitUrl } = useVoiceStore();
-  const { joinVoice }  = useVoice();
+  const { joinVoice } = useVoice();
   const [joining, setJoining] = useState(false);
 
   const channel = channels.find((c) => c.id === channelId);
@@ -29,15 +39,18 @@ export function VoicePage() {
     setJoining(false);
   };
 
-  /* ── Already connected with a token → render the live room ── */
+  /* ── Connected → render the live room ── */
   if (isConnected && livekitToken && livekitUrl) {
     return (
       <LiveKitRoom
         serverUrl={livekitUrl}
         token={livekitToken}
         connect={true}
-        audio={true}
+        audio={AUDIO_OPTIONS}   // ← real noise suppression
         video={false}
+        // adaptiveStream: LiveKit dynamically adjusts quality based on bandwidth
+        // dynacast:       only publishes at qualities actually subscribed to (saves upload)
+        options={{ adaptiveStream: true, dynacast: true }}
         style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
         onDisconnected={() => useVoiceStore.getState().disconnect()}
       >
@@ -51,23 +64,24 @@ export function VoicePage() {
     <div style={{
       flex: 1, display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center', gap: 24,
-      padding: 32,
+      height: '100%', padding: 32,
     }}>
       {/* Icon */}
       <div style={{
-        width: 80, height: 80, borderRadius: 24,
-        background: 'rgba(62,207,142,0.12)',
+        width: 88, height: 88, borderRadius: 24,
+        background: 'rgba(62,207,142,0.1)',
+        border: '1px solid rgba(62,207,142,0.2)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
-        <Volume2 size={36} color="var(--color-online)" />
+        <Volume2 size={38} color="var(--color-online)" />
       </div>
 
       {/* Info */}
-      <div style={{ textAlign: 'center' }}>
+      <div style={{ textAlign: 'center', maxWidth: 320 }}>
         <h2 style={{ margin: '0 0 8px', fontSize: 22, fontWeight: 800, color: 'var(--color-primary)' }}>
           🔊 {channel?.name ?? 'Voice Channel'}
         </h2>
-        <p style={{ margin: 0, fontSize: 14, color: 'var(--color-muted)' }}>
+        <p style={{ margin: 0, fontSize: 14, color: 'var(--color-muted)', lineHeight: 1.6 }}>
           Join to talk with others in this channel
         </p>
       </div>
@@ -78,12 +92,15 @@ export function VoicePage() {
         disabled={joining}
         style={{
           display: 'flex', alignItems: 'center', gap: 8,
-          padding: '12px 28px', borderRadius: 12, border: 'none',
+          padding: '12px 32px', borderRadius: 12, border: 'none',
           background: joining ? 'rgba(62,207,142,0.4)' : 'var(--color-online)',
           color: '#000', fontSize: 14, fontWeight: 800,
           cursor: joining ? 'default' : 'pointer',
           transition: 'all 0.15s',
+          boxShadow: joining ? 'none' : '0 4px 20px rgba(62,207,142,0.3)',
         }}
+        onMouseEnter={e => { if (!joining) (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'none'; }}
       >
         {joining
           ? <><Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> Connecting…</>
