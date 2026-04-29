@@ -77,7 +77,12 @@ export function AppShell() {
             background: 'var(--color-base)',
             display: 'flex', flexDirection: 'column',
           } : {
-            left: sidebarOpen ? 'var(--size-sidebar)' : '0px',
+            left:       sidebarOpen
+              ? 'calc(var(--size-sidebar) + var(--card-inset-x, 0px))'
+              : 'var(--card-inset-x, 0px)',
+            top:        'calc(var(--size-header) + var(--card-inset-y, 0px))',
+            right:      'var(--card-inset-x, 0px)',
+            bottom:     'var(--card-inset-y, 0px)',
             transition: 'left 0.25s cubic-bezier(0.4,0,0.2,1)',
           }}
           className={isMobile ? undefined : 'app-main'}

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type ThemeId = 'dark' | 'purple';
+export type ThemeId = 'dark' | 'purple' | 'onyx';
 
 export interface ChatBg {
   id:    string;   // filename without path e.g. "Midnight Atlas.png"
@@ -39,6 +39,12 @@ export const THEMES: ThemeConfig[] = [
     label:       'OLED Purple',
     description: 'Pure black with vibrant purple branding',
     swatches:    ['#000000', '#9d8fff'],
+  },
+  {
+    id:          'onyx',
+    label:       'Onyx Canvas',
+    description: 'Linear-inspired — chat floats as a card over the canvas',
+    swatches:    ['#06060e', '#00d4ff'],
   },
 ];
 

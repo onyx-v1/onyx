@@ -84,6 +84,75 @@
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
+/* ─── THEME: Onyx Canvas ───────────────────────────────────────────────────── */
+/* Linear-inspired: whole background is the canvas, chat floats as a card       */
+[data-theme="onyx"] {
+  --color-base:     #06060e;
+  --color-panel:    #0b0b18;
+  --color-hover:    rgba(255,255,255,0.04);
+  --color-active:   rgba(0,212,255,0.10);
+  --color-elevated: #10101e;
+  --color-input:    #08080f;
+  --color-border:   rgba(255,255,255,0.05);
+  --color-accent:       #00d4ff;
+  --color-accent-hover: #33ddff;
+  --color-accent-muted: rgba(0,212,255,0.12);
+  --color-primary: #eeeeff;
+  --color-muted:   #6868a0;
+  --color-subtle:  #38384e;
+  --color-online:  #3ecf8e;
+  --color-danger:  #f04040;
+  --color-warning: #f59e0b;
+  --size-header:  54px;
+  --size-sidebar: 208px;
+  --card-inset-x: 8px;
+  --card-inset-y: 8px;
+  --card-radius:  14px;
+  --radius-panel:   14px;
+  --radius-control: 8px;
+  --radius-sm:       5px;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Canvas: sidebar + header dissolve into background */
+[data-theme="onyx"] .app-header {
+  background: transparent;
+  border-bottom: none;
+}
+[data-theme="onyx"] .app-sidebar {
+  background: transparent;
+  border-right: none;
+}
+
+/* Main panel floats as a card */
+[data-theme="onyx"] .app-main {
+  background: var(--color-panel);
+  border-radius: var(--card-radius);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.06),
+    0 12px 48px rgba(0,0,0,0.6),
+    inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+/* Channel items — Linear style with left accent bar on active */
+[data-theme="onyx"] .channel-item {
+  border-radius: var(--radius-sm);
+  padding: 5px 10px 5px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  position: relative;
+}
+[data-theme="onyx"] .channel-item:hover { background: rgba(255,255,255,0.04); color: var(--color-primary); }
+[data-theme="onyx"] .channel-item.active { background: rgba(0,212,255,0.08); color: var(--color-accent); font-weight: 600; }
+[data-theme="onyx"] .channel-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 4px; bottom: 4px;
+  width: 2px; border-radius: 1px;
+  background: var(--color-accent);
+}
+[data-theme="onyx"] ::-webkit-scrollbar { width: 2px; }
+
 /* ── Smooth theme crossfade (only backgrounds + text, not animations) ── */
 *, *::before, *::after {
   transition:
